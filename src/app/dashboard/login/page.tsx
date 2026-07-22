@@ -29,134 +29,109 @@ export default function DashboardLogin() {
   }
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
-        {/* Logo */}
-        <div style={styles.logoBox}>TG</div>
+    <div style={s.page}>
+      <div style={s.card}>
+        <div style={s.logo}>TG</div>
+        <h1 style={s.title}>Marketing Intelligence</h1>
+        <p style={s.subtitle}>Enter your password to access the dashboard</p>
 
-        {/* Title */}
-        <h1 style={styles.title}>Marketing Intelligence</h1>
-        <p style={styles.subtitle}>Enter your access password to continue</p>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={styles.form}>
+        <form onSubmit={handleSubmit} style={s.form}>
           <input
             type="password"
-            placeholder="Enter password"
+            placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            style={styles.input}
+            style={s.input}
           />
-          {error && <p style={styles.error}>{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              ...styles.button,
-              ...(loading ? styles.buttonDisabled : {}),
-            }}
-          >
+          {error && <p style={s.error}>{error}</p>}
+          <button type="submit" disabled={loading} style={s.button}>
             {loading ? 'Verifying...' : 'Access Dashboard'}
           </button>
         </form>
 
-        {/* Footer */}
-        <p style={styles.footer}>Company staff only · Authorized access</p>
+        <p style={s.footer}>Company staff only</p>
       </div>
     </div>
   );
 }
 
-const styles: Record<string, React.CSSProperties> = {
+const s: Record<string, React.CSSProperties> = {
   page: {
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    background: 'linear-gradient(135deg, #0d2818 0%, #1a4d2e 50%, #0d2818 100%)',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    background: '#f8faf9',
     minHeight: '100vh',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     padding: '20px',
   },
-  container: {
-    background: '#ffffff',
-    borderRadius: '32px',
-    padding: '48px',
+  card: {
+    background: '#fff',
+    borderRadius: '12px',
+    padding: '40px',
     width: '100%',
-    maxWidth: '460px',
-    boxShadow: '0 24px 64px rgba(0, 0, 0, 0.3)',
+    maxWidth: '400px',
     textAlign: 'center',
+    border: '1px solid #e2e8f0',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
   },
-  logoBox: {
-    width: '80px',
-    height: '80px',
-    borderRadius: '20px',
-    background: 'linear-gradient(135deg, #39ff14 0%, #10b981 100%)',
+  logo: {
+    width: '64px',
+    height: '64px',
+    borderRadius: '12px',
+    background: '#10b981',
+    color: '#fff',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '36px',
-    fontWeight: 900,
-    color: '#0d2818',
-    margin: '0 auto 24px',
-    boxShadow: '0 12px 32px rgba(57, 255, 20, 0.3)',
+    fontSize: '28px',
+    fontWeight: 700,
+    margin: '0 auto 20px',
   },
   title: {
     margin: '0 0 8px',
-    fontSize: '32px',
-    fontWeight: 900,
-    color: '#0d2818',
-    letterSpacing: '-0.5px',
+    fontSize: '24px',
+    fontWeight: 700,
+    color: '#0f172a',
   },
   subtitle: {
-    margin: '0 0 32px',
-    fontSize: '15px',
-    color: '#6b7280',
-    fontWeight: 500,
+    margin: '0 0 28px',
+    fontSize: '14px',
+    color: '#64748b',
   },
   form: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px',
+    gap: '12px',
   },
   input: {
-    padding: '16px 20px',
-    borderRadius: '16px',
-    border: '2px solid #e8f5e9',
-    background: '#f8fffe',
-    fontSize: '15px',
-    fontWeight: 600,
-    color: '#0d2818',
+    padding: '12px 16px',
+    borderRadius: '8px',
+    border: '1px solid #cbd5e1',
+    fontSize: '14px',
+    color: '#0f172a',
     outline: 'none',
-    transition: 'all 0.3s ease',
   },
   error: {
     color: '#ef4444',
-    fontSize: '14px',
-    fontWeight: 700,
+    fontSize: '13px',
     margin: 0,
+    fontWeight: 600,
   },
   button: {
-    background: 'linear-gradient(135deg, #39ff14 0%, #10b981 100%)',
-    color: '#0d2818',
+    background: '#10b981',
+    color: '#fff',
     border: 'none',
-    padding: '16px',
-    borderRadius: '16px',
-    fontSize: '16px',
-    fontWeight: 900,
+    padding: '12px',
+    borderRadius: '8px',
+    fontSize: '15px',
+    fontWeight: 600,
     cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    boxShadow: '0 8px 24px rgba(57, 255, 20, 0.3)',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-    cursor: 'not-allowed',
   },
   footer: {
-    marginTop: '32px',
+    marginTop: '24px',
     fontSize: '13px',
-    color: '#9ca3af',
-    fontWeight: 500,
+    color: '#94a3b8',
   },
 };

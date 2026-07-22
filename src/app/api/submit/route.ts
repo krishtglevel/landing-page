@@ -6,38 +6,58 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
+    // -----------------------------
+    // 1. Get submitted user details
+    // -----------------------------
     const fullName = (body.fullName || '').toString().trim();
     const phone = (body.phone || '').toString().trim();
 
-    // New: receive attribution data from frontend
+    // Attribution comes from the landing page URL
     const attribution = body.attribution || null;
 
+    // -----------------------------
+    // 2. Validate full name
+    // -----------------------------
     if (!fullName) {
       return NextResponse.json(
-        { error: 'Full name is required.' },
-        { status: 400 }
+        {
+          error: 'Full name is required.',
+        },
+        {
+          status: 400,
+        }
       );
     }
 
+    // -----------------------------
+    // 3. Validate phone number
+    // -----------------------------
     const digits = phone.replace(/\D/g, '');
 
     if (digits.length !== 10) {
       return NextResponse.json(
-        { error: 'Phone number must be exactly 10 digits.' },
-        { status: 400 }
+        {
+          error: 'Phone number must be exactly 10 digits.',
+        },
+        {
+          status: 400,
+        }
       );
     }
 
     const normalizedPhone = digits;
 
-    const timestamp = new Date().toLocaleString('en-IN', {
-      timeZone: 'Asia/Kolkata',
-    });
-
-    // Save to MongoDB
+    // -----------------------------
+    // 4. Connect to MongoDB
+    // -----------------------------
     await connectDB();
 
-    const submissions = await Submission.find().lean();
+    // -----------------------------
+    // 5. Check duplicate phone number
+    // -----------------------------
+    const submissions = await Submission.find()
+      .select('phone')
+      .lean();
 
     const alreadyRegistered = submissions.some((doc: any) => {
       const existingDigits = (doc.phone || '')
@@ -49,20 +69,32 @@ export async function POST(req: NextRequest) {
 
     if (alreadyRegistered) {
       return NextResponse.json(
-        { error: 'You are already registered.' },
-        { status: 400 }
+        {
+          error: 'You are already registered.',
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    // Save lead + marketing attribution
-    await Submission.create({
+    // -----------------------------
+    // 6. Save lead + attribution
+    // -----------------------------
+    const submission = await Submission.create({
       fullName,
       phone: normalizedPhone,
       attribution,
     });
 
-    // Send live to Google Sheets via Apps Script
+    // -----------------------------
+    // 7. Send data to Google Sheets
+    // -----------------------------
     if (process.env.GOOGLE_SCRIPT_URL) {
+      const timestamp = new Date().toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+      });
+
       await fetch(process.env.GOOGLE_SCRIPT_URL, {
         method: 'POST',
         headers: {
@@ -72,19 +104,26 @@ export async function POST(req: NextRequest) {
           timestamp,
           fullName,
           phone: normalizedPhone,
-
-          // Optional: send attribution to Google Sheets also
           attribution,
         }),
       });
     }
 
+    // -----------------------------
+    // 8. Return success response
+    // -----------------------------
     return NextResponse.json({
       success: true,
+      message: 'Submission saved successfully.',
+      data: {
+        id: submission._id,
+      },
     });
   } catch (err: unknown) {
     const message =
-      err instanceof Error ? err.message : 'Server error.';
+      err instanceof Error
+        ? err.message
+        : 'Server error.';
 
     console.error('[submit]', message);
 

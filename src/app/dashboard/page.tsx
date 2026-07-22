@@ -32,8 +32,8 @@ const PLATFORM_COLORS: Record<string, string> = {
   Google: '#10b981',
   Meta: '#1877f2',
   YouTube: '#ff0000',
-  Direct: '#6b7280',
-  Other: '#6b7280',
+  Direct: '#64748b',
+  Other: '#64748b',
 };
 
 const RANGE_OPTIONS = [
@@ -46,7 +46,6 @@ const RANGE_OPTIONS = [
 
 /* ─── Main Component ─── */
 export default function Dashboard() {
-  // Live submission stream (existing)
   const [data, setData] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
@@ -54,7 +53,6 @@ export default function Dashboard() {
   const [connected, setConnected] = useState(false);
   const prevLengthRef = useRef(0);
 
-  // Analytics state
   const [overview, setOverview] = useState<OverviewData | null>(null);
   const [platforms, setPlatforms] = useState<PlatformData[]>([]);
   const [campaigns, setCampaigns] = useState<CampaignData[]>([]);
@@ -62,30 +60,27 @@ export default function Dashboard() {
   const [landingPages, setLandingPages] = useState<LandingPageData[]>([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
-  // Filters
   const [range, setRange] = useState('all');
   const [platformFilter, setPlatformFilter] = useState('all');
   const [campaignFilter, setCampaignFilter] = useState('all');
   const [lpFilter, setLpFilter] = useState('all');
 
-  // Chat
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      text: "👋 Hi! I'm your Marketing Intelligence Assistant. Ask me anything about your leads, platforms, campaigns, or landing pages.",
+      text: "Hi! Ask me anything about your marketing data.",
     },
   ]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Active tab
   const [activeTab, setActiveTab] = useState<
     'platforms' | 'campaigns' | 'ads' | 'landingPages' | 'leads'
   >('platforms');
 
-  /* ── Existing live stream ── */
+  /* ── Live stream ── */
   useEffect(() => {
     const es = new EventSource('/api/submissions/stream');
     es.onopen = () => setConnected(true);
@@ -135,7 +130,6 @@ export default function Dashboard() {
     fetchAnalytics();
   }, [range]);
 
-  // Re-fetch when new submissions arrive
   useEffect(() => {
     if (data.length > 0 && !loading) {
       fetchAnalytics();
@@ -176,7 +170,7 @@ export default function Dashboard() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  /* ── Filter data for display ── */
+  /* ── Filters ── */
   const filteredCampaigns = campaigns.filter((c) => {
     if (platformFilter !== 'all' && c.platform !== platformFilter) return false;
     return true;
@@ -195,13 +189,8 @@ export default function Dashboard() {
     return true;
   });
 
-  /* ── Unique filter options ── */
-  const uniquePlatforms = [...new Set(data.map((d) => d.platform))].filter(
-    Boolean
-  );
-  const uniqueCampaigns = [...new Set(data.map((d) => d.campaign))].filter(
-    Boolean
-  );
+  const uniquePlatforms = [...new Set(data.map((d) => d.platform))].filter(Boolean);
+  const uniqueCampaigns = [...new Set(data.map((d) => d.campaign))].filter(Boolean);
   const uniqueLPs = [...new Set(data.map((d) => d.landingPage))].filter(Boolean);
 
   const handleDownload = () => {
@@ -209,399 +198,285 @@ export default function Dashboard() {
   };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.container}>
-        {/* ═══ HEADER ═══ */}
-        <header style={styles.header}>
-          <div style={styles.headerLeft}>
-            <div style={styles.logoContainer}>
-              <div style={styles.logo}>TG</div>
+    <div style={s.page}>
+      <div style={s.container}>
+        {/* Header */}
+        <div style={s.header}>
+          <div>
+            <div style={s.brand}>
+              <div style={s.brandLogo}>TG</div>
               <div>
-                <h1 style={styles.title}>Marketing Intelligence</h1>
-                <p style={styles.subtitle}>
-                  Track your marketing performance and lead journey
-                </p>
+                <h1 style={s.brandTitle}>Marketing Intelligence</h1>
+                <p style={s.brandSub}>Track performance and lead journey</p>
               </div>
             </div>
           </div>
-          <div style={styles.headerRight}>
-            <div
-              style={{
-                ...styles.liveStatus,
-                ...(connected ? styles.liveStatusActive : {}),
-              }}
-            >
-              <span style={styles.liveDot} />
-              <span style={styles.liveText}>
-                {connected ? 'LIVE' : 'RECONNECTING'}
-              </span>
+          <div style={s.headerActions}>
+            {lastUpdated && (
+              <span style={s.lastUpdate}>Updated {lastUpdated}</span>
+            )}
+            <div style={connected ? s.statusLive : s.statusOff}>
+              <span style={s.statusDot} />
+              {connected ? 'Live' : 'Reconnecting'}
             </div>
-            <button onClick={handleDownload} style={styles.exportButton}>
-              <span style={styles.buttonIcon}>↓</span>
-              Export Excel
+            <button onClick={handleDownload} style={s.btnExport}>
+              ↓ Export Excel
             </button>
           </div>
-        </header>
+        </div>
 
-        {lastUpdated && (
-          <p style={styles.lastUpdated}>Last updated: {lastUpdated}</p>
-        )}
-
-        {/* New submission notification */}
+        {/* New lead notification */}
         {newCount > 0 && (
-          <div style={styles.notification}>
-            <span style={styles.notificationIcon}>🎉</span>
-            <span style={styles.notificationText}>
-              +{newCount} new lead{newCount > 1 ? 's' : ''} received
-            </span>
+          <div style={s.newLeadBanner}>
+            🎉 +{newCount} new lead{newCount > 1 ? 's' : ''} received
           </div>
         )}
 
-        {/* ═══ FILTERS ═══ */}
-        <div style={styles.filtersCard}>
-          <div style={styles.filtersGrid}>
-            <div style={styles.filterGroup}>
-              <label style={styles.filterLabel}>DATE RANGE</label>
-              <select
-                style={styles.filterSelect}
-                value={range}
-                onChange={(e) => setRange(e.target.value)}
-              >
-                {RANGE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={styles.filterGroup}>
-              <label style={styles.filterLabel}>PLATFORM</label>
-              <select
-                style={styles.filterSelect}
-                value={platformFilter}
-                onChange={(e) => setPlatformFilter(e.target.value)}
-              >
-                <option value="all">All Platforms</option>
-                {uniquePlatforms.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={styles.filterGroup}>
-              <label style={styles.filterLabel}>CAMPAIGN</label>
-              <select
-                style={styles.filterSelect}
-                value={campaignFilter}
-                onChange={(e) => setCampaignFilter(e.target.value)}
-              >
-                <option value="all">All Campaigns</option>
-                {uniqueCampaigns.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div style={styles.filterGroup}>
-              <label style={styles.filterLabel}>LANDING PAGE</label>
-              <select
-                style={styles.filterSelect}
-                value={lpFilter}
-                onChange={(e) => setLpFilter(e.target.value)}
-              >
-                <option value="all">All Pages</option>
-                {uniqueLPs.map((lp) => (
-                  <option key={lp} value={lp}>
-                    {lp}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {/* Filters */}
+        <div style={s.filters}>
+          <div style={s.filterItem}>
+            <label style={s.filterLabel}>Date Range</label>
+            <select style={s.filterSelect} value={range} onChange={(e) => setRange(e.target.value)}>
+              {RANGE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </div>
+          <div style={s.filterItem}>
+            <label style={s.filterLabel}>Platform</label>
+            <select style={s.filterSelect} value={platformFilter} onChange={(e) => setPlatformFilter(e.target.value)}>
+              <option value="all">All Platforms</option>
+              {uniquePlatforms.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+          <div style={s.filterItem}>
+            <label style={s.filterLabel}>Campaign</label>
+            <select style={s.filterSelect} value={campaignFilter} onChange={(e) => setCampaignFilter(e.target.value)}>
+              <option value="all">All Campaigns</option>
+              {uniqueCampaigns.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div style={s.filterItem}>
+            <label style={s.filterLabel}>Landing Page</label>
+            <select style={s.filterSelect} value={lpFilter} onChange={(e) => setLpFilter(e.target.value)}>
+              <option value="all">All Pages</option>
+              {uniqueLPs.map((lp) => (
+                <option key={lp} value={lp}>{lp}</option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* ═══ KPI CARDS ═══ */}
-        <div style={styles.kpiGrid}>
-          <KpiCard
-            label="TOTAL LEADS"
-            value={overview?.totalLeads ?? 0}
-            accent="#39ff14"
-            loading={analyticsLoading}
-            highlight
-          />
-          <KpiCard
-            label="GOOGLE"
-            value={overview?.platforms?.Google ?? 0}
-            accent="#10b981"
-            loading={analyticsLoading}
-          />
-          <KpiCard
-            label="META"
-            value={overview?.platforms?.Meta ?? 0}
-            accent="#1877f2"
-            loading={analyticsLoading}
-          />
-          <KpiCard
-            label="YOUTUBE"
-            value={overview?.platforms?.YouTube ?? 0}
-            accent="#ff0000"
-            loading={analyticsLoading}
-          />
+        {/* KPI Cards */}
+        <div style={s.kpiGrid}>
+          <div style={s.kpiCard}>
+            <div style={s.kpiLabel}>Total Leads</div>
+            <div style={s.kpiValue}>{analyticsLoading ? '—' : (overview?.totalLeads ?? 0).toLocaleString()}</div>
+          </div>
+          <div style={s.kpiCard}>
+            <div style={s.kpiLabel}>Google</div>
+            <div style={s.kpiValue}>{analyticsLoading ? '—' : (overview?.platforms?.Google ?? 0).toLocaleString()}</div>
+          </div>
+          <div style={s.kpiCard}>
+            <div style={s.kpiLabel}>Meta</div>
+            <div style={s.kpiValue}>{analyticsLoading ? '—' : (overview?.platforms?.Meta ?? 0).toLocaleString()}</div>
+          </div>
+          <div style={s.kpiCard}>
+            <div style={s.kpiLabel}>YouTube</div>
+            <div style={s.kpiValue}>{analyticsLoading ? '—' : (overview?.platforms?.YouTube ?? 0).toLocaleString()}</div>
+          </div>
         </div>
 
-        {/* ═══ TABS ═══ */}
-        <div style={styles.tabsContainer}>
+        {/* Tabs */}
+        <div style={s.tabs}>
           {[
-            { key: 'platforms', label: 'Platforms', icon: '🌐' },
-            { key: 'campaigns', label: 'Campaigns', icon: '📢' },
-            { key: 'ads', label: 'Ads', icon: '🎯' },
-            { key: 'landingPages', label: 'Pages', icon: '🔗' },
-            { key: 'leads', label: 'Leads', icon: '👥' },
+            { key: 'platforms', label: 'Platforms' },
+            { key: 'campaigns', label: 'Campaigns' },
+            { key: 'ads', label: 'Ads' },
+            { key: 'landingPages', label: 'Pages' },
+            { key: 'leads', label: 'Leads' },
           ].map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key as any)}
-              style={{
-                ...styles.tab,
-                ...(activeTab === tab.key ? styles.tabActive : {}),
-              }}
+              style={activeTab === tab.key ? s.tabActive : s.tab}
             >
-              <span style={styles.tabIcon}>{tab.icon}</span>
-              <span>{tab.label}</span>
+              {tab.label}
             </button>
           ))}
         </div>
 
-        {/* ═══ TAB CONTENT ═══ */}
-        <div style={styles.contentCard}>
-          {/* Platform Performance */}
+        {/* Content */}
+        <div style={s.content}>
           {activeTab === 'platforms' && (
-            <div>
-              <h2 style={styles.contentTitle}>Platform Performance</h2>
+            <>
+              <h2 style={s.contentTitle}>Platform Performance</h2>
               {platforms.length === 0 ? (
-                <p style={styles.emptyState}>No platform data available yet.</p>
+                <p style={s.empty}>No data yet</p>
               ) : (
-                <div style={styles.platformGrid}>
+                <div style={s.platformsGrid}>
                   {platforms.map((p) => (
-                    <div key={p.platform} style={styles.platformCard}>
-                      <div style={styles.platformHeader}>
-                        <span
-                          style={{
-                            ...styles.platformDot,
-                            background:
-                              PLATFORM_COLORS[p.platform] || '#6b7280',
-                          }}
-                        />
-                        <span style={styles.platformName}>{p.platform}</span>
+                    <div key={p.platform} style={s.platformCard}>
+                      <div style={s.platformTop}>
+                        <span style={{ ...s.platformDot, background: PLATFORM_COLORS[p.platform] }} />
+                        <span style={s.platformName}>{p.platform}</span>
                       </div>
-                      <div style={styles.platformValue}>
-                        {p.leads.toLocaleString()}
+                      <div style={s.platformValue}>{p.leads.toLocaleString()}</div>
+                      <div style={s.platformBar}>
+                        <div style={{ ...s.platformBarFill, width: `${p.percentage}%`, background: PLATFORM_COLORS[p.platform] }} />
                       </div>
-                      <div style={styles.platformLabel}>Leads</div>
-                      <div style={styles.progressBar}>
-                        <div
-                          style={{
-                            ...styles.progressFill,
-                            width: `${p.percentage}%`,
-                            background:
-                              PLATFORM_COLORS[p.platform] || '#6b7280',
-                          }}
-                        />
-                      </div>
-                      <div style={styles.platformPercentage}>
-                        {p.percentage.toFixed(1)}%
-                      </div>
+                      <div style={s.platformPct}>{p.percentage.toFixed(1)}%</div>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
+            </>
           )}
 
-          {/* Campaign Performance */}
           {activeTab === 'campaigns' && (
-            <div>
-              <h2 style={styles.contentTitle}>Campaign Performance</h2>
+            <>
+              <h2 style={s.contentTitle}>Campaign Performance</h2>
               {filteredCampaigns.length === 0 ? (
-                <p style={styles.emptyState}>No campaign data available yet.</p>
+                <p style={s.empty}>No campaigns yet</p>
               ) : (
-                <div style={styles.tableWrapper}>
-                  <table style={styles.table} className="dash-table">
+                <div style={s.tableWrap}>
+                  <table style={s.table} className="dash-table">
                     <thead>
-                      <tr style={styles.tableHeaderRow}>
-                        <th style={styles.tableHeader}>#</th>
-                        <th style={styles.tableHeader}>Campaign</th>
-                        <th style={styles.tableHeader}>Platform</th>
-                        <th style={styles.tableHeader}>Leads</th>
+                      <tr>
+                        <th style={s.th}>#</th>
+                        <th style={s.th}>Campaign</th>
+                        <th style={s.th}>Platform</th>
+                        <th style={s.th}>Leads</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredCampaigns.map((c, i) => (
-                        <tr key={c.campaign} style={styles.tableRow}>
-                          <td style={styles.tableCell}>{i + 1}</td>
-                          <td style={styles.tableCellBold}>{c.campaign}</td>
-                          <td style={styles.tableCell}>
-                            <span
-                              style={{
-                                ...styles.platformBadge,
-                                background:
-                                  PLATFORM_COLORS[c.platform] || '#6b7280',
-                              }}
-                            >
+                        <tr key={c.campaign}>
+                          <td style={s.td}>{i + 1}</td>
+                          <td style={s.tdBold}>{c.campaign}</td>
+                          <td style={s.td}>
+                            <span style={{ ...s.badge, background: PLATFORM_COLORS[c.platform] }}>
                               {c.platform}
                             </span>
                           </td>
-                          <td style={styles.tableCellNumber}>
-                            {c.leads.toLocaleString()}
-                          </td>
+                          <td style={s.tdNum}>{c.leads.toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               )}
-            </div>
+            </>
           )}
 
-          {/* Ad Performance */}
           {activeTab === 'ads' && (
-            <div>
-              <h2 style={styles.contentTitle}>Ad Performance</h2>
+            <>
+              <h2 style={s.contentTitle}>Ad Performance</h2>
               {filteredAds.length === 0 ? (
-                <p style={styles.emptyState}>No ad data available yet.</p>
+                <p style={s.empty}>No ads yet</p>
               ) : (
-                <div style={styles.tableWrapper}>
-                  <table style={styles.table} className="dash-table">
+                <div style={s.tableWrap}>
+                  <table style={s.table} className="dash-table">
                     <thead>
-                      <tr style={styles.tableHeaderRow}>
-                        <th style={styles.tableHeader}>#</th>
-                        <th style={styles.tableHeader}>Ad</th>
-                        <th style={styles.tableHeader}>Campaign</th>
-                        <th style={styles.tableHeader}>Platform</th>
-                        <th style={styles.tableHeader}>Leads</th>
+                      <tr>
+                        <th style={s.th}>#</th>
+                        <th style={s.th}>Ad</th>
+                        <th style={s.th}>Campaign</th>
+                        <th style={s.th}>Platform</th>
+                        <th style={s.th}>Leads</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredAds.map((a, i) => (
-                        <tr key={a.ad} style={styles.tableRow}>
-                          <td style={styles.tableCell}>{i + 1}</td>
-                          <td style={styles.tableCellBold}>{a.ad}</td>
-                          <td style={styles.tableCell}>{a.campaign}</td>
-                          <td style={styles.tableCell}>
-                            <span
-                              style={{
-                                ...styles.platformBadge,
-                                background:
-                                  PLATFORM_COLORS[a.platform] || '#6b7280',
-                              }}
-                            >
+                        <tr key={a.ad}>
+                          <td style={s.td}>{i + 1}</td>
+                          <td style={s.tdBold}>{a.ad}</td>
+                          <td style={s.td}>{a.campaign}</td>
+                          <td style={s.td}>
+                            <span style={{ ...s.badge, background: PLATFORM_COLORS[a.platform] }}>
                               {a.platform}
                             </span>
                           </td>
-                          <td style={styles.tableCellNumber}>
-                            {a.leads.toLocaleString()}
-                          </td>
+                          <td style={s.tdNum}>{a.leads.toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               )}
-            </div>
+            </>
           )}
 
-          {/* Landing Page Performance */}
           {activeTab === 'landingPages' && (
-            <div>
-              <h2 style={styles.contentTitle}>Landing Page Performance</h2>
+            <>
+              <h2 style={s.contentTitle}>Landing Page Performance</h2>
               {landingPages.length === 0 ? (
-                <p style={styles.emptyState}>
-                  No landing page data available yet.
-                </p>
+                <p style={s.empty}>No pages yet</p>
               ) : (
-                <div style={styles.tableWrapper}>
-                  <table style={styles.table} className="dash-table">
+                <div style={s.tableWrap}>
+                  <table style={s.table} className="dash-table">
                     <thead>
-                      <tr style={styles.tableHeaderRow}>
-                        <th style={styles.tableHeader}>#</th>
-                        <th style={styles.tableHeader}>Landing Page</th>
-                        <th style={styles.tableHeader}>Leads</th>
+                      <tr>
+                        <th style={s.th}>#</th>
+                        <th style={s.th}>Page</th>
+                        <th style={s.th}>Leads</th>
                       </tr>
                     </thead>
                     <tbody>
                       {landingPages.map((lp, i) => (
-                        <tr key={lp.path} style={styles.tableRow}>
-                          <td style={styles.tableCell}>{i + 1}</td>
-                          <td style={styles.tableCellCode}>
-                            <code style={styles.codeBlock}>{lp.path}</code>
-                          </td>
-                          <td style={styles.tableCellNumber}>
-                            {lp.leads.toLocaleString()}
-                          </td>
+                        <tr key={lp.path}>
+                          <td style={s.td}>{i + 1}</td>
+                          <td style={s.tdCode}><code style={s.code}>{lp.path}</code></td>
+                          <td style={s.tdNum}>{lp.leads.toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               )}
-            </div>
+            </>
           )}
 
-          {/* Lead Details */}
           {activeTab === 'leads' && (
-            <div>
-              <h2 style={styles.contentTitle}>
-                Lead Details ({filteredLeads.length})
-              </h2>
+            <>
+              <h2 style={s.contentTitle}>Lead Details ({filteredLeads.length})</h2>
               {loading ? (
-                <p style={styles.emptyState}>Connecting to live stream...</p>
+                <p style={s.empty}>Connecting...</p>
               ) : filteredLeads.length === 0 ? (
-                <p style={styles.emptyState}>No leads available yet.</p>
+                <p style={s.empty}>No leads yet</p>
               ) : (
                 <>
-                  <div style={styles.tableWrapper}>
-                    <table style={styles.table} className="dash-table">
+                  <div style={s.tableWrap}>
+                    <table style={s.table} className="dash-table">
                       <thead>
-                        <tr style={styles.tableHeaderRow}>
-                          <th style={styles.tableHeader}>#</th>
-                          <th style={styles.tableHeader}>Full Name</th>
-                          <th style={styles.tableHeader}>Phone</th>
-                          <th style={styles.tableHeader}>Platform</th>
-                          <th style={styles.tableHeader}>Campaign</th>
-                          <th style={styles.tableHeader}>Page</th>
-                          <th style={styles.tableHeader}>Time</th>
+                        <tr>
+                          <th style={s.th}>#</th>
+                          <th style={s.th}>Name</th>
+                          <th style={s.th}>Phone</th>
+                          <th style={s.th}>Platform</th>
+                          <th style={s.th}>Campaign</th>
+                          <th style={s.th}>Page</th>
+                          <th style={s.th}>Time</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredLeads.map((row) => (
-                          <tr key={row.index} style={styles.tableRow}>
-                            <td style={styles.tableCell}>{row.index}</td>
-                            <td style={styles.tableCellBold}>{row.fullName}</td>
-                            <td style={styles.tableCell}>{row.phone}</td>
-                            <td style={styles.tableCell}>
-                              <span
-                                style={{
-                                  ...styles.platformBadge,
-                                  background:
-                                    PLATFORM_COLORS[row.platform] || '#6b7280',
-                                }}
-                              >
+                          <tr key={row.index}>
+                            <td style={s.td}>{row.index}</td>
+                            <td style={s.tdBold}>{row.fullName}</td>
+                            <td style={s.td}>{row.phone}</td>
+                            <td style={s.td}>
+                              <span style={{ ...s.badge, background: PLATFORM_COLORS[row.platform] }}>
                                 {row.platform}
                               </span>
                             </td>
-                            <td style={styles.tableCell}>
-                              {row.campaign || '—'}
-                            </td>
-                            <td style={styles.tableCellCode}>
-                              <code style={styles.codeBlock}>
-                                {row.landingPage || '/'}
-                              </code>
-                            </td>
-                            <td style={styles.tableCellMuted}>
-                              {row.timestamp}
-                            </td>
+                            <td style={s.td}>{row.campaign || '—'}</td>
+                            <td style={s.tdCode}><code style={s.code}>{row.landingPage || '/'}</code></td>
+                            <td style={s.tdMuted}>{row.timestamp}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -611,99 +486,58 @@ export default function Dashboard() {
                   {/* Mobile cards */}
                   <div className="dash-cards">
                     {filteredLeads.map((row) => (
-                      <div key={row.index} style={styles.mobileCard}>
-                        <div style={styles.mobileCardHeader}>
-                          <span style={styles.mobileCardIndex}>
-                            #{row.index}
-                          </span>
-                          <span
-                            style={{
-                              ...styles.platformBadgeSmall,
-                              background:
-                                PLATFORM_COLORS[row.platform] || '#6b7280',
-                            }}
-                          >
+                      <div key={row.index} style={s.mobileCard}>
+                        <div style={s.mobileTop}>
+                          <span style={s.mobileIndex}>#{row.index}</span>
+                          <span style={{ ...s.badge, background: PLATFORM_COLORS[row.platform] }}>
                             {row.platform}
                           </span>
                         </div>
-                        <p style={styles.mobileCardName}>{row.fullName}</p>
-                        <p style={styles.mobileCardPhone}>{row.phone}</p>
-                        {row.campaign && (
-                          <p style={styles.mobileCardMeta}>
-                            Campaign: {row.campaign}
-                          </p>
-                        )}
-                        <p style={styles.mobileCardTime}>{row.timestamp}</p>
+                        <p style={s.mobileName}>{row.fullName}</p>
+                        <p style={s.mobilePhone}>{row.phone}</p>
+                        {row.campaign && <p style={s.mobileMeta}>Campaign: {row.campaign}</p>}
+                        <p style={s.mobileTime}>{row.timestamp}</p>
                       </div>
                     ))}
                   </div>
                 </>
               )}
-            </div>
+            </>
           )}
         </div>
 
-        {/* Footer */}
         {!loading && data.length > 0 && (
-          <div style={styles.footer}>
+          <div style={s.footer}>
             Total: <strong>{data.length.toLocaleString()}</strong> submissions
           </div>
         )}
       </div>
 
-      {/* ═══ CHATBOT FAB ═══ */}
-      <button
-        onClick={() => setChatOpen(!chatOpen)}
-        style={styles.chatFab}
-        aria-label="Toggle chat"
-      >
+      {/* Chat FAB */}
+      <button onClick={() => setChatOpen(!chatOpen)} style={s.chatFab}>
         {chatOpen ? '✕' : '💬'}
       </button>
 
-      {/* ═══ CHATBOT PANEL ═══ */}
+      {/* Chat Panel */}
       {chatOpen && (
-        <div style={styles.chatPanel}>
-          <div style={styles.chatHeader}>
-            <span style={styles.chatHeaderIcon}>🤖</span>
-            <span style={styles.chatHeaderTitle}>
-              Marketing Intelligence Assistant
-            </span>
+        <div style={s.chatPanel}>
+          <div style={s.chatHeader}>
+            <span>🤖 Marketing Assistant</span>
           </div>
 
-          <div style={styles.chatMessages}>
+          <div style={s.chatBody}>
             {chatMessages.map((msg, i) => (
-              <div
-                key={i}
-                style={
-                  msg.role === 'user'
-                    ? styles.chatMessageUser
-                    : styles.chatMessageAssistant
-                }
-              >
-                <div
-                  style={
-                    msg.role === 'user'
-                      ? styles.chatBubbleUser
-                      : styles.chatBubbleAssistant
-                  }
-                >
+              <div key={i} style={msg.role === 'user' ? s.msgUser : s.msgBot}>
+                <div style={msg.role === 'user' ? s.bubbleUser : s.bubbleBot}>
                   {msg.text.split('\n').map((line, j) => (
                     <span key={j}>
-                      {line
-                        .replace(/\*\*(.*?)\*\*/g, '«$1»')
-                        .split('«')
-                        .map((part, k) => {
-                          if (part.includes('»')) {
-                            const [bold, rest] = part.split('»');
-                            return (
-                              <span key={k}>
-                                <strong>{bold}</strong>
-                                {rest}
-                              </span>
-                            );
-                          }
-                          return <span key={k}>{part}</span>;
-                        })}
+                      {line.replace(/\*\*(.*?)\*\*/g, '«$1»').split('«').map((part, k) => {
+                        if (part.includes('»')) {
+                          const [bold, rest] = part.split('»');
+                          return <span key={k}><strong>{bold}</strong>{rest}</span>;
+                        }
+                        return <span key={k}>{part}</span>;
+                      })}
                       <br />
                     </span>
                   ))}
@@ -711,57 +545,43 @@ export default function Dashboard() {
               </div>
             ))}
             {chatLoading && (
-              <div style={styles.chatMessageAssistant}>
-                <div style={styles.chatBubbleAssistant}>
-                  <span style={styles.chatLoading}>●●●</span>
-                </div>
+              <div style={s.msgBot}>
+                <div style={s.bubbleBot}>Thinking...</div>
               </div>
             )}
             <div ref={chatEndRef} />
           </div>
 
-          <div style={styles.chatQuickButtons}>
-            {[
-              'Which platform has the most leads?',
-              'Top campaign?',
-              'Compare Google and Meta',
-            ].map((q) => (
-              <button
-                key={q}
-                style={styles.quickButton}
-                onClick={() => setChatInput(q)}
-              >
+          <div style={s.chatQuick}>
+            {['Which platform has the most leads?', 'Top campaign?', 'Compare Google and Meta'].map((q) => (
+              <button key={q} style={s.quickBtn} onClick={() => setChatInput(q)}>
                 {q}
               </button>
             ))}
           </div>
 
-          <div style={styles.chatInputContainer}>
+          <div style={s.chatInput}>
             <input
-              style={styles.chatInput}
+              style={s.input}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && sendChat()}
-              placeholder="Ask about your marketing data..."
+              placeholder="Ask about your data..."
               disabled={chatLoading}
             />
             <button
               onClick={sendChat}
               disabled={chatLoading || !chatInput.trim()}
-              style={{
-                ...styles.chatSendButton,
-                ...(chatLoading || !chatInput.trim()
-                  ? styles.chatSendButtonDisabled
-                  : {}),
-              }}
+              style={s.btnSend}
             >
-              Ask
+              Send
             </button>
           </div>
         </div>
       )}
 
       <style>{`
+        * { box-sizing: border-box; }
         .dash-table { display: table; }
         .dash-cards { display: none; }
         
@@ -769,679 +589,532 @@ export default function Dashboard() {
           .dash-table { display: none !important; }
           .dash-cards { display: flex; flex-direction: column; gap: 12px; }
         }
-        
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
       `}</style>
     </div>
   );
 }
 
-/* ─── KPI Card Component ─── */
-function KpiCard({
-  label,
-  value,
-  accent,
-  loading,
-  highlight = false,
-}: {
-  label: string;
-  value: number;
-  accent: string;
-  loading: boolean;
-  highlight?: boolean;
-}) {
-  return (
-    <div
-      style={{
-        ...styles.kpiCard,
-        ...(highlight ? styles.kpiCardHighlight : {}),
-      }}
-    >
-      <div style={styles.kpiLabel}>{label}</div>
-      <div style={{ ...styles.kpiValue, color: accent }}>
-        {loading ? '—' : value.toLocaleString()}
-      </div>
-      <div style={{ ...styles.kpiAccent, background: accent }} />
-    </div>
-  );
-}
-
 /* ═══════════════════════════════════════
-   STYLES - TG LEVELS BRAND
+   CLEAN PROFESSIONAL STYLES
    ═══════════════════════════════════════ */
-const styles: Record<string, React.CSSProperties> = {
-  // ─── Page Layout ───
+const s: Record<string, React.CSSProperties> = {
   page: {
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
-    background: 'linear-gradient(135deg, #0d2818 0%, #1a4d2e 50%, #0d2818 100%)',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    background: '#f8faf9',
     minHeight: '100vh',
-    padding: '32px 20px',
-    color: '#0d2818',
+    padding: '24px 16px',
   },
   container: {
-    maxWidth: '1400px',
+    maxWidth: '1280px',
     margin: '0 auto',
   },
 
-  // ─── Header ───
+  // Header
   header: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: '24px',
-    marginBottom: '12px',
+    gap: '16px',
+    marginBottom: '24px',
   },
-  headerLeft: {
-    flex: 1,
-  },
-  logoContainer: {
+  brand: {
     display: 'flex',
     alignItems: 'center',
-    gap: '16px',
+    gap: '12px',
   },
-  logo: {
-    width: '56px',
-    height: '56px',
-    borderRadius: '16px',
-    background: 'linear-gradient(135deg, #39ff14 0%, #10b981 100%)',
+  brandLogo: {
+    width: '48px',
+    height: '48px',
+    borderRadius: '12px',
+    background: '#10b981',
+    color: '#fff',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '24px',
-    fontWeight: 900,
-    color: '#0d2818',
-    letterSpacing: '-1px',
-    boxShadow: '0 8px 32px rgba(57, 255, 20, 0.3)',
+    fontSize: '20px',
+    fontWeight: 700,
   },
-  title: {
+  brandTitle: {
     margin: 0,
-    fontSize: '32px',
-    fontWeight: 900,
-    color: '#ffffff',
-    letterSpacing: '-0.5px',
-    lineHeight: 1.2,
+    fontSize: '24px',
+    fontWeight: 700,
+    color: '#0f172a',
   },
-  subtitle: {
-    margin: '4px 0 0',
+  brandSub: {
+    margin: '2px 0 0',
     fontSize: '14px',
-    color: '#a3f0c3',
-    fontWeight: 500,
+    color: '#64748b',
   },
-  headerRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    flexWrap: 'wrap',
-  },
-  liveStatus: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '10px 18px',
-    borderRadius: '100px',
-    background: 'rgba(255, 255, 255, 0.1)',
-    border: '2px solid rgba(255, 193, 7, 0.3)',
-  },
-  liveStatusActive: {
-    background: 'rgba(57, 255, 20, 0.15)',
-    border: '2px solid #39ff14',
-  },
-  liveDot: {
-    width: '10px',
-    height: '10px',
-    borderRadius: '50%',
-    background: '#ffc107',
-    animation: 'pulse 2s ease-in-out infinite',
-  },
-  liveText: {
-    fontSize: '12px',
-    fontWeight: 900,
-    letterSpacing: '1px',
-    color: '#39ff14',
-  },
-  exportButton: {
-    background: '#39ff14',
-    color: '#0d2818',
-    border: 'none',
-    padding: '12px 28px',
-    borderRadius: '100px',
-    fontSize: '15px',
-    fontWeight: 800,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-    boxShadow: '0 4px 20px rgba(57, 255, 20, 0.3)',
-  },
-  buttonIcon: {
-    fontSize: '18px',
-  },
-  lastUpdated: {
-    margin: '0 0 24px',
-    fontSize: '13px',
-    color: '#a3f0c3',
-    fontWeight: 500,
-  },
-
-  // ─── Notification ───
-  notification: {
-    background: 'linear-gradient(135deg, #ffd60a 0%, #ffc107 100%)',
-    color: '#0d2818',
-    padding: '16px 24px',
-    borderRadius: '20px',
-    marginBottom: '24px',
+  headerActions: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
-    fontWeight: 700,
-    fontSize: '15px',
-    boxShadow: '0 8px 32px rgba(255, 214, 10, 0.4)',
-    animation: 'slideIn 0.5s ease-out',
+    flexWrap: 'wrap',
   },
-  notificationIcon: {
-    fontSize: '24px',
+  lastUpdate: {
+    fontSize: '13px',
+    color: '#64748b',
   },
-  notificationText: {
-    flex: 1,
-  },
-
-  // ─── Filters ───
-  filtersCard: {
-    background: '#ffffff',
-    borderRadius: '24px',
-    padding: '32px',
-    marginBottom: '32px',
-    boxShadow: '0 12px 48px rgba(0, 0, 0, 0.15)',
-  },
-  filtersGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '24px',
-  },
-  filterGroup: {
+  statusLive: {
     display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 12px',
+    borderRadius: '20px',
+    background: '#d1fae5',
+    color: '#065f46',
+    fontSize: '13px',
+    fontWeight: 600,
   },
-  filterLabel: {
-    fontSize: '11px',
-    fontWeight: 800,
-    letterSpacing: '1px',
-    color: '#1a4d2e',
-    textTransform: 'uppercase',
+  statusOff: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 12px',
+    borderRadius: '20px',
+    background: '#fef3c7',
+    color: '#92400e',
+    fontSize: '13px',
+    fontWeight: 600,
   },
-  filterSelect: {
-    padding: '12px 16px',
-    borderRadius: '12px',
-    border: '2px solid #e8f5e9',
-    background: '#ffffff',
-    color: '#0d2818',
+  statusDot: {
+    width: '6px',
+    height: '6px',
+    borderRadius: '50%',
+    background: 'currentColor',
+  },
+  btnExport: {
+    background: '#10b981',
+    color: '#fff',
+    border: 'none',
+    padding: '8px 16px',
+    borderRadius: '8px',
     fontSize: '14px',
     fontWeight: 600,
     cursor: 'pointer',
-    outline: 'none',
-    transition: 'all 0.3s ease',
   },
 
-  // ─── KPI Cards ───
+  // New lead banner
+  newLeadBanner: {
+    background: '#fef3c7',
+    color: '#92400e',
+    padding: '12px 16px',
+    borderRadius: '8px',
+    marginBottom: '20px',
+    fontSize: '14px',
+    fontWeight: 600,
+    textAlign: 'center',
+  },
+
+  // Filters
+  filters: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '16px',
+    marginBottom: '24px',
+    padding: '20px',
+    background: '#fff',
+    borderRadius: '12px',
+    border: '1px solid #e2e8f0',
+  },
+  filterItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+  },
+  filterLabel: {
+    fontSize: '12px',
+    fontWeight: 600,
+    color: '#475569',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  filterSelect: {
+    padding: '8px 12px',
+    borderRadius: '6px',
+    border: '1px solid #cbd5e1',
+    fontSize: '14px',
+    color: '#0f172a',
+    background: '#fff',
+    cursor: 'pointer',
+    outline: 'none',
+  },
+
+  // KPI Cards
   kpiGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-    gap: '20px',
-    marginBottom: '32px',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '16px',
+    marginBottom: '24px',
   },
   kpiCard: {
-    background: '#ffffff',
-    borderRadius: '24px',
-    padding: '32px',
-    position: 'relative',
-    overflow: 'hidden',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-  },
-  kpiCardHighlight: {
-    background: 'linear-gradient(135deg, #0d2818 0%, #1a4d2e 100%)',
+    background: '#fff',
+    padding: '20px',
+    borderRadius: '12px',
+    border: '1px solid #e2e8f0',
   },
   kpiLabel: {
-    fontSize: '12px',
-    fontWeight: 800,
-    letterSpacing: '1.5px',
-    color: '#1a4d2e',
-    marginBottom: '12px',
-  },
-  kpiValue: {
-    fontSize: '48px',
-    fontWeight: 900,
-    lineHeight: 1,
+    fontSize: '13px',
+    fontWeight: 600,
+    color: '#64748b',
     marginBottom: '8px',
   },
-  kpiAccent: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: '6px',
-    borderRadius: '0 0 24px 24px',
+  kpiValue: {
+    fontSize: '32px',
+    fontWeight: 700,
+    color: '#0f172a',
   },
 
-  // ─── Tabs ───
-  tabsContainer: {
+  // Tabs
+  tabs: {
     display: 'flex',
-    gap: '8px',
-    marginBottom: '2px',
+    gap: '4px',
+    marginBottom: '0',
     overflowX: 'auto',
-    background: 'rgba(255, 255, 255, 0.1)',
-    padding: '8px',
-    borderRadius: '20px 20px 0 0',
+    background: '#fff',
+    padding: '4px',
+    borderRadius: '8px 8px 0 0',
+    border: '1px solid #e2e8f0',
+    borderBottom: 'none',
   },
   tab: {
-    padding: '14px 24px',
+    padding: '10px 20px',
     border: 'none',
     background: 'transparent',
-    color: '#a3f0c3',
+    color: '#64748b',
     fontSize: '14px',
-    fontWeight: 700,
+    fontWeight: 600,
     cursor: 'pointer',
-    borderRadius: '14px',
-    transition: 'all 0.3s ease',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
+    borderRadius: '6px',
     whiteSpace: 'nowrap',
   },
   tabActive: {
-    background: '#39ff14',
-    color: '#0d2818',
-    boxShadow: '0 4px 16px rgba(57, 255, 20, 0.3)',
-  },
-  tabIcon: {
-    fontSize: '18px',
+    padding: '10px 20px',
+    border: 'none',
+    background: '#f1f5f9',
+    color: '#10b981',
+    fontSize: '14px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    borderRadius: '6px',
+    whiteSpace: 'nowrap',
   },
 
-  // ─── Content Card ───
-  contentCard: {
-    background: '#ffffff',
-    borderRadius: '0 0 24px 24px',
-    padding: '40px',
+  // Content
+  content: {
+    background: '#fff',
+    padding: '24px',
+    borderRadius: '0 0 12px 12px',
+    border: '1px solid #e2e8f0',
     minHeight: '400px',
-    boxShadow: '0 12px 48px rgba(0, 0, 0, 0.15)',
   },
   contentTitle: {
-    margin: '0 0 32px',
-    fontSize: '28px',
-    fontWeight: 900,
-    color: '#0d2818',
-    letterSpacing: '-0.5px',
+    margin: '0 0 20px',
+    fontSize: '20px',
+    fontWeight: 700,
+    color: '#0f172a',
   },
-  emptyState: {
-    color: '#6b7280',
-    fontSize: '16px',
+  empty: {
+    color: '#94a3b8',
+    fontSize: '14px',
     textAlign: 'center',
-    padding: '80px 20px',
-    fontWeight: 500,
+    padding: '60px 20px',
   },
 
-  // ─── Platform Grid ───
-  platformGrid: {
+  // Platforms
+  platformsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
-    gap: '20px',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gap: '16px',
   },
   platformCard: {
-    background: '#f8fffe',
-    borderRadius: '20px',
-    padding: '28px',
-    border: '2px solid #e8f5e9',
-    transition: 'all 0.3s ease',
+    background: '#f8fafc',
+    padding: '20px',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
   },
-  platformHeader: {
+  platformTop: {
     display: 'flex',
     alignItems: 'center',
-    gap: '12px',
-    marginBottom: '16px',
+    gap: '8px',
+    marginBottom: '12px',
   },
   platformDot: {
-    width: '12px',
-    height: '12px',
+    width: '10px',
+    height: '10px',
     borderRadius: '50%',
-    flexShrink: 0,
   },
   platformName: {
-    fontSize: '16px',
-    fontWeight: 800,
-    color: '#0d2818',
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#0f172a',
   },
   platformValue: {
-    fontSize: '42px',
-    fontWeight: 900,
-    color: '#0d2818',
-    lineHeight: 1,
-    marginBottom: '12px',
-  },
-  platformLabel: {
-    fontSize: '12px',
+    fontSize: '28px',
     fontWeight: 700,
-    color: '#6b7280',
-    textTransform: 'uppercase',
-    letterSpacing: '1px',
-    marginBottom: '16px',
-  },
-  progressBar: {
-    height: '8px',
-    background: '#e8f5e9',
-    borderRadius: '100px',
-    overflow: 'hidden',
+    color: '#0f172a',
     marginBottom: '12px',
   },
-  progressFill: {
-    height: '100%',
-    borderRadius: '100px',
-    transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+  platformBar: {
+    height: '6px',
+    background: '#e2e8f0',
+    borderRadius: '3px',
+    overflow: 'hidden',
+    marginBottom: '8px',
   },
-  platformPercentage: {
-    fontSize: '14px',
-    fontWeight: 800,
-    color: '#1a4d2e',
+  platformBarFill: {
+    height: '100%',
+    borderRadius: '3px',
+    transition: 'width 0.5s ease',
+  },
+  platformPct: {
+    fontSize: '13px',
+    fontWeight: 600,
+    color: '#64748b',
   },
 
-  // ─── Table ───
-  tableWrapper: {
-    background: '#f8fffe',
-    borderRadius: '20px',
-    overflow: 'auto',
-    border: '2px solid #e8f5e9',
+  // Table
+  tableWrap: {
+    overflowX: 'auto',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
   },
   table: {
     width: '100%',
     borderCollapse: 'collapse',
   },
-  tableHeaderRow: {
-    background: '#e8f5e9',
-  },
-  tableHeader: {
-    padding: '18px 20px',
+  th: {
+    padding: '12px 16px',
     textAlign: 'left',
-    fontSize: '11px',
-    fontWeight: 900,
-    letterSpacing: '1.5px',
-    color: '#1a4d2e',
-    textTransform: 'uppercase',
-    borderBottom: '2px solid #10b981',
-  },
-  tableRow: {
-    borderBottom: '1px solid #e8f5e9',
-    transition: 'background 0.2s ease',
-  },
-  tableCell: {
-    padding: '16px 20px',
-    fontSize: '14px',
-    color: '#374151',
-    fontWeight: 500,
-  },
-  tableCellBold: {
-    padding: '16px 20px',
-    fontSize: '14px',
-    color: '#0d2818',
-    fontWeight: 700,
-  },
-  tableCellNumber: {
-    padding: '16px 20px',
-    fontSize: '16px',
-    color: '#0d2818',
-    fontWeight: 900,
-  },
-  tableCellMuted: {
-    padding: '16px 20px',
-    fontSize: '13px',
-    color: '#9ca3af',
-    fontWeight: 500,
-  },
-  tableCellCode: {
-    padding: '16px 20px',
-  },
-  platformBadge: {
-    display: 'inline-block',
-    padding: '4px 12px',
-    borderRadius: '100px',
     fontSize: '12px',
-    fontWeight: 800,
-    color: '#ffffff',
+    fontWeight: 600,
+    color: '#475569',
+    background: '#f8fafc',
+    borderBottom: '1px solid #e2e8f0',
+    textTransform: 'uppercase',
     letterSpacing: '0.5px',
   },
-  platformBadgeSmall: {
+  td: {
+    padding: '12px 16px',
+    fontSize: '14px',
+    color: '#334155',
+    borderBottom: '1px solid #f1f5f9',
+  },
+  tdBold: {
+    padding: '12px 16px',
+    fontSize: '14px',
+    color: '#0f172a',
+    fontWeight: 600,
+    borderBottom: '1px solid #f1f5f9',
+  },
+  tdNum: {
+    padding: '12px 16px',
+    fontSize: '15px',
+    color: '#0f172a',
+    fontWeight: 700,
+    borderBottom: '1px solid #f1f5f9',
+  },
+  tdMuted: {
+    padding: '12px 16px',
+    fontSize: '13px',
+    color: '#94a3b8',
+    borderBottom: '1px solid #f1f5f9',
+  },
+  tdCode: {
+    padding: '12px 16px',
+    borderBottom: '1px solid #f1f5f9',
+  },
+  badge: {
     display: 'inline-block',
     padding: '3px 10px',
-    borderRadius: '100px',
-    fontSize: '11px',
-    fontWeight: 800,
-    color: '#ffffff',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: 600,
+    color: '#fff',
   },
-  codeBlock: {
-    background: '#e8f5e9',
-    padding: '6px 12px',
-    borderRadius: '8px',
+  code: {
+    background: '#f1f5f9',
+    padding: '3px 8px',
+    borderRadius: '4px',
     fontSize: '13px',
     fontFamily: 'monospace',
-    color: '#1a4d2e',
-    fontWeight: 600,
+    color: '#475569',
   },
 
-  // ─── Mobile Cards ───
+  // Mobile cards
   mobileCard: {
-    background: '#ffffff',
-    borderRadius: '16px',
-    padding: '20px',
-    border: '2px solid #e8f5e9',
-    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+    background: '#fff',
+    padding: '16px',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
   },
-  mobileCardHeader: {
+  mobileTop: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '12px',
+    marginBottom: '8px',
   },
-  mobileCardIndex: {
+  mobileIndex: {
     fontSize: '12px',
-    fontWeight: 800,
-    color: '#6b7280',
+    fontWeight: 600,
+    color: '#94a3b8',
   },
-  mobileCardName: {
+  mobileName: {
     margin: '0 0 4px',
-    fontSize: '16px',
-    fontWeight: 800,
-    color: '#0d2818',
+    fontSize: '15px',
+    fontWeight: 600,
+    color: '#0f172a',
   },
-  mobileCardPhone: {
+  mobilePhone: {
     margin: '0 0 8px',
     fontSize: '14px',
-    color: '#374151',
-    fontWeight: 600,
+    color: '#475569',
   },
-  mobileCardMeta: {
+  mobileMeta: {
     margin: '0 0 4px',
-    fontSize: '12px',
-    color: '#6b7280',
-    fontWeight: 500,
+    fontSize: '13px',
+    color: '#64748b',
   },
-  mobileCardTime: {
+  mobileTime: {
     margin: 0,
-    fontSize: '11px',
-    color: '#9ca3af',
-    fontWeight: 500,
+    fontSize: '12px',
+    color: '#94a3b8',
   },
 
-  // ─── Footer ───
+  // Footer
   footer: {
-    padding: '24px',
+    padding: '20px',
     textAlign: 'center',
     fontSize: '14px',
-    color: '#a3f0c3',
-    fontWeight: 600,
+    color: '#64748b',
   },
 
-  // ─── Chatbot ───
+  // Chat
   chatFab: {
     position: 'fixed',
-    bottom: '32px',
-    right: '32px',
-    width: '64px',
-    height: '64px',
+    bottom: '24px',
+    right: '24px',
+    width: '56px',
+    height: '56px',
     borderRadius: '50%',
-    background: 'linear-gradient(135deg, #39ff14 0%, #10b981 100%)',
+    background: '#10b981',
+    color: '#fff',
     border: 'none',
-    color: '#0d2818',
-    fontSize: '28px',
+    fontSize: '24px',
     cursor: 'pointer',
-    boxShadow: '0 8px 32px rgba(57, 255, 20, 0.4)',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
     zIndex: 1000,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   },
   chatPanel: {
     position: 'fixed',
-    bottom: '112px',
-    right: '32px',
-    width: '420px',
-    maxWidth: 'calc(100vw - 64px)',
-    height: '600px',
-    maxHeight: 'calc(100vh - 144px)',
-    background: '#ffffff',
-    borderRadius: '24px',
-    boxShadow: '0 24px 64px rgba(0, 0, 0, 0.25)',
+    bottom: '92px',
+    right: '24px',
+    width: '380px',
+    maxWidth: 'calc(100vw - 48px)',
+    height: '500px',
+    maxHeight: 'calc(100vh - 120px)',
+    background: '#fff',
+    borderRadius: '12px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
     zIndex: 1000,
-    border: '2px solid #e8f5e9',
+    border: '1px solid #e2e8f0',
   },
   chatHeader: {
-    background: 'linear-gradient(135deg, #0d2818 0%, #1a4d2e 100%)',
-    padding: '20px 24px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
+    padding: '16px',
+    background: '#10b981',
+    color: '#fff',
+    fontSize: '15px',
+    fontWeight: '600',
     flexShrink: 0,
   },
-  chatHeaderIcon: {
-    fontSize: '24px',
-  },
-  chatHeaderTitle: {
-    fontSize: '16px',
-    fontWeight: 800,
-    color: '#ffffff',
-    letterSpacing: '-0.3px',
-  },
-  chatMessages: {
+  chatBody: {
     flex: 1,
     overflowY: 'auto',
-    padding: '24px',
+    padding: '16px',
     display: 'flex',
     flexDirection: 'column',
-    gap: '16px',
-    background: '#f8fffe',
+    gap: '12px',
+    background: '#f8fafc',
   },
-  chatMessageUser: {
+  msgUser: {
     display: 'flex',
     justifyContent: 'flex-end',
   },
-  chatMessageAssistant: {
+  msgBot: {
     display: 'flex',
     justifyContent: 'flex-start',
   },
-  chatBubbleUser: {
-    background: '#39ff14',
-    color: '#0d2818',
-    padding: '12px 18px',
-    borderRadius: '20px 20px 4px 20px',
+  bubbleUser: {
+    background: '#10b981',
+    color: '#fff',
+    padding: '10px 14px',
+    borderRadius: '12px 12px 2px 12px',
     fontSize: '14px',
     maxWidth: '80%',
-    lineHeight: 1.6,
-    fontWeight: 600,
-    boxShadow: '0 4px 16px rgba(57, 255, 20, 0.2)',
+    lineHeight: 1.5,
   },
-  chatBubbleAssistant: {
-    background: '#ffffff',
-    color: '#0d2818',
-    padding: '12px 18px',
-    borderRadius: '20px 20px 20px 4px',
+  bubbleBot: {
+    background: '#fff',
+    color: '#0f172a',
+    padding: '10px 14px',
+    borderRadius: '12px 12px 12px 2px',
     fontSize: '14px',
     maxWidth: '85%',
-    lineHeight: 1.6,
-    border: '2px solid #e8f5e9',
-    fontWeight: 500,
+    lineHeight: 1.5,
+    border: '1px solid #e2e8f0',
   },
-  chatLoading: {
-    fontSize: '20px',
-    animation: 'pulse 1.5s ease-in-out infinite',
-  },
-  chatQuickButtons: {
+  chatQuick: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '8px',
-    padding: '16px 24px',
-    background: '#ffffff',
-    borderTop: '1px solid #e8f5e9',
+    gap: '6px',
+    padding: '12px 16px',
+    background: '#fff',
+    borderTop: '1px solid #e2e8f0',
     flexShrink: 0,
   },
-  quickButton: {
-    background: '#f8fffe',
-    color: '#1a4d2e',
-    border: '2px solid #e8f5e9',
-    padding: '10px 16px',
-    borderRadius: '12px',
+  quickBtn: {
+    background: '#f8fafc',
+    color: '#475569',
+    border: '1px solid #e2e8f0',
+    padding: '8px 12px',
+    borderRadius: '6px',
     fontSize: '13px',
-    fontWeight: 700,
+    fontWeight: 500,
     cursor: 'pointer',
     textAlign: 'left',
-    transition: 'all 0.2s ease',
-  },
-  chatInputContainer: {
-    display: 'flex',
-    padding: '20px 24px',
-    gap: '12px',
-    background: '#ffffff',
-    borderTop: '2px solid #e8f5e9',
-    flexShrink: 0,
   },
   chatInput: {
+    display: 'flex',
+    padding: '12px 16px',
+    gap: '8px',
+    background: '#fff',
+    borderTop: '1px solid #e2e8f0',
+    flexShrink: 0,
+  },
+  input: {
     flex: 1,
-    padding: '14px 18px',
-    borderRadius: '14px',
-    border: '2px solid #e8f5e9',
-    background: '#f8fffe',
-    color: '#0d2818',
+    padding: '8px 12px',
+    borderRadius: '6px',
+    border: '1px solid #cbd5e1',
+    fontSize: '14px',
+    color: '#0f172a',
+    outline: 'none',
+  },
+  btnSend: {
+    background: '#10b981',
+    color: '#fff',
+    border: 'none',
+    padding: '8px 16px',
+    borderRadius: '6px',
     fontSize: '14px',
     fontWeight: 600,
-    outline: 'none',
-    transition: 'all 0.3s ease',
-  },
-  chatSendButton: {
-    background: '#39ff14',
-    color: '#0d2818',
-    border: 'none',
-    padding: '14px 28px',
-    borderRadius: '14px',
-    fontSize: '14px',
-    fontWeight: 900,
     cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    boxShadow: '0 4px 16px rgba(57, 255, 20, 0.3)',
-  },
-  chatSendButtonDisabled: {
-    opacity: 0.5,
-    cursor: 'not-allowed',
   },
 };
