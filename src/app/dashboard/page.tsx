@@ -36,6 +36,14 @@ const PLATFORM_COLORS: Record<string, string> = {
   Other: '#64748b',
 };
 
+const SERIES_CONFIG: Record<string, { label: string; color: string }> = {
+  Total: { label: 'Total', color: '#4f46e5' },
+  Google: { label: 'Google', color: '#10b981' },
+  Meta: { label: 'Meta', color: '#2563eb' },
+  YouTube: { label: 'YouTube', color: '#ef4444' },
+  Direct: { label: 'Direct', color: '#64748b' },
+};
+
 const RANGE_OPTIONS = [
   { label: 'Today', value: 'today' },
   { label: 'Yesterday', value: 'yesterday' },
@@ -43,6 +51,30 @@ const RANGE_OPTIONS = [
   { label: 'Last 30 Days', value: '30d' },
   { label: 'All Time', value: 'all' },
 ];
+
+const LEADS_PER_PAGE = 10;
+
+/* ─── Helper for Smooth SVG Curve Paths ─── */
+function getSmoothPath(coords: Array<{ x: number; y: number }>) {
+  if (coords.length === 0) return '';
+  if (coords.length === 1) return `M ${coords[0].x} ${coords[0].y}`;
+
+  let path = `M ${coords[0].x} ${coords[0].y}`;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p0 = coords[i === 0 ? i : i - 1];
+    const p1 = coords[i];
+    const p2 = coords[i + 1];
+    const p3 = coords[i + 2] || p2;
+
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+    path += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  return path;
+}
 
 /* ─── Main Component ─── */
 export default function Dashboard() {
@@ -65,11 +97,23 @@ export default function Dashboard() {
   const [campaignFilter, setCampaignFilter] = useState('all');
   const [lpFilter, setLpFilter] = useState('all');
 
+  // Chart Series Toggle Filter State
+  const [activeSeries, setActiveSeries] = useState<Record<string, boolean>>({
+    Total: true,
+    Google: true,
+    Meta: true,
+    YouTube: true,
+    Direct: true,
+  });
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
       role: 'assistant',
-      text: "Hi! Ask me anything about your marketing data.",
+      text: 'Hi! Ask me anything about your marketing data.',
     },
   ]);
   const [chatInput, setChatInput] = useState('');
@@ -77,8 +121,8 @@ export default function Dashboard() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const [activeTab, setActiveTab] = useState<
-    'platforms' | 'campaigns' | 'ads' | 'landingPages' | 'leads'
-  >('platforms');
+    'analytics' | 'platforms' | 'campaigns' | 'ads' | 'landingPages' | 'leads'
+  >('analytics');
 
   /* ── Live stream ── */
   useEffect(() => {
@@ -170,7 +214,58 @@ export default function Dashboard() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  /* ── Filters ── */
+  /* ── Filter data based on date range ── */
+  const filterByDateRange = (submissions: Submission[]) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    return submissions.filter((s) => {
+      const submissionDate = new Date(s.timestamp);
+
+      switch (range) {
+        case 'today':
+          return submissionDate >= today;
+        case 'yesterday': {
+          const yesterday = new Date(today);
+          yesterday.setDate(yesterday.getDate() - 1);
+          return submissionDate >= yesterday && submissionDate < today;
+        }
+        case '7d': {
+          const sevenDaysAgo = new Date(today);
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+          return submissionDate >= sevenDaysAgo;
+        }
+        case '30d': {
+          const thirtyDaysAgo = new Date(today);
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          return submissionDate >= thirtyDaysAgo;
+        }
+        case 'all':
+        default:
+          return true;
+      }
+    });
+  };
+
+  /* ── Apply all filters ── */
+  const applyFilters = (submissions: Submission[]) => {
+    let filtered = filterByDateRange(submissions);
+
+    if (platformFilter !== 'all') {
+      filtered = filtered.filter((s) => s.platform === platformFilter);
+    }
+    if (campaignFilter !== 'all') {
+      filtered = filtered.filter((s) => s.campaign === campaignFilter);
+    }
+    if (lpFilter !== 'all') {
+      filtered = filtered.filter((s) => s.landingPage === lpFilter);
+    }
+
+    return filtered;
+  };
+
+  const filteredData = applyFilters(data);
+
   const filteredCampaigns = campaigns.filter((c) => {
     if (platformFilter !== 'all' && c.platform !== platformFilter) return false;
     return true;
@@ -182,20 +277,132 @@ export default function Dashboard() {
     return true;
   });
 
-  const filteredLeads = data.filter((s) => {
-    if (platformFilter !== 'all' && s.platform !== platformFilter) return false;
-    if (campaignFilter !== 'all' && s.campaign !== campaignFilter) return false;
-    if (lpFilter !== 'all' && s.landingPage !== lpFilter) return false;
-    return true;
-  });
+  const filteredLeads = filteredData;
 
   const uniquePlatforms = [...new Set(data.map((d) => d.platform))].filter(Boolean);
   const uniqueCampaigns = [...new Set(data.map((d) => d.campaign))].filter(Boolean);
   const uniqueLPs = [...new Set(data.map((d) => d.landingPage))].filter(Boolean);
 
+  // Pagination logic
+  const totalPages = Math.ceil(filteredLeads.length / LEADS_PER_PAGE);
+  const startIndex = (currentPage - 1) * LEADS_PER_PAGE;
+  const endIndex = startIndex + LEADS_PER_PAGE;
+  const paginatedLeads = filteredLeads.slice(startIndex, endIndex);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [platformFilter, campaignFilter, lpFilter, range]);
+
   const handleDownload = () => {
     window.location.href = '/api/export';
   };
+
+  const toggleSeries = (key: string) => {
+    setActiveSeries((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  /* ── Time-Series Cumulative Calculation for Chart ── */
+  const getChartData = () => {
+    const list = [...filteredData].sort((a, b) => {
+      const tA = new Date(a.timestamp).getTime();
+      const tB = new Date(b.timestamp).getTime();
+      return (isNaN(tA) ? 0 : tA) - (isNaN(tB) ? 0 : tB);
+    });
+
+    if (list.length === 0) {
+      return {
+        points: [
+          { label: 'Start', Total: 0, Google: 0, Meta: 0, YouTube: 0, Direct: 0 },
+          { label: 'Current', Total: 0, Google: 0, Meta: 0, YouTube: 0, Direct: 0 },
+        ],
+        maxY: 5,
+      };
+    }
+
+    let cumTotal = 0;
+    let cumGoogle = 0;
+    let cumMeta = 0;
+    let cumYouTube = 0;
+    let cumDirect = 0;
+
+    const firstDate = new Date(list[0].timestamp);
+    const firstLabel = isNaN(firstDate.getTime())
+      ? 'Start'
+      : firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+    const points: Array<{
+      label: string;
+      Total: number;
+      Google: number;
+      Meta: number;
+      YouTube: number;
+      Direct: number;
+    }> = [
+      {
+        label: firstLabel,
+        Total: 0,
+        Google: 0,
+        Meta: 0,
+        YouTube: 0,
+        Direct: 0,
+      },
+    ];
+
+    list.forEach((sub, i) => {
+      cumTotal++;
+      const p = (sub.platform || '').toLowerCase();
+      if (p.includes('google')) cumGoogle++;
+      else if (p.includes('meta') || p.includes('facebook') || p.includes('instagram')) cumMeta++;
+      else if (p.includes('youtube')) cumYouTube++;
+      else cumDirect++;
+
+      const d = new Date(sub.timestamp);
+      const lbl = isNaN(d.getTime())
+        ? `#${i + 1}`
+        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+      points.push({
+        label: lbl,
+        Total: cumTotal,
+        Google: cumGoogle,
+        Meta: cumMeta,
+        YouTube: cumYouTube,
+        Direct: cumDirect,
+      });
+    });
+
+    let sampledPoints = points;
+    if (points.length > 7) {
+      const step = (points.length - 1) / 6;
+      sampledPoints = [];
+      for (let i = 0; i < 7; i++) {
+        const idx = Math.round(i * step);
+        sampledPoints.push(points[idx]);
+      }
+    }
+
+    const maxVal = Math.max(1, cumTotal);
+    const maxY = Math.max(5, Math.ceil(maxVal * 1.2));
+
+    return {
+      points: sampledPoints,
+      maxY: maxY <= 5 ? 5 : Math.ceil(maxY / 5) * 5,
+    };
+  };
+
+  const chartInfo = getChartData();
+  const svgWidth = 840;
+  const svgHeight = 360;
+  const padLeft = 45;
+  const padRight = 25;
+  const padTop = 25;
+  const padBottom = 40;
+  const graphWidth = svgWidth - padLeft - padRight;
+  const graphHeight = svgHeight - padTop - padBottom;
+
+  const numPoints = chartInfo.points.length;
+  const getX = (idx: number) => padLeft + (idx / Math.max(1, numPoints - 1)) * graphWidth;
+  const getY = (val: number) => padTop + graphHeight - (val / chartInfo.maxY) * graphHeight;
 
   return (
     <div style={s.page}>
@@ -212,9 +419,7 @@ export default function Dashboard() {
             </div>
           </div>
           <div style={s.headerActions}>
-            {lastUpdated && (
-              <span style={s.lastUpdate}>Updated {lastUpdated}</span>
-            )}
+            {lastUpdated && <span style={s.lastUpdate}>Updated {lastUpdated}</span>}
             <div style={connected ? s.statusLive : s.statusOff}>
               <span style={s.statusDot} />
               {connected ? 'Live' : 'Reconnecting'}
@@ -236,64 +441,69 @@ export default function Dashboard() {
         <div style={s.filters}>
           <div style={s.filterItem}>
             <label style={s.filterLabel}>Date Range</label>
-            <select style={s.filterSelect} value={range} onChange={(e) => setRange(e.target.value)}>
+            <select
+              style={s.filterSelect}
+              value={range}
+              onChange={(e) => setRange(e.target.value)}
+            >
               {RANGE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
               ))}
             </select>
           </div>
           <div style={s.filterItem}>
             <label style={s.filterLabel}>Platform</label>
-            <select style={s.filterSelect} value={platformFilter} onChange={(e) => setPlatformFilter(e.target.value)}>
+            <select
+              style={s.filterSelect}
+              value={platformFilter}
+              onChange={(e) => setPlatformFilter(e.target.value)}
+            >
               <option value="all">All Platforms</option>
               {uniquePlatforms.map((p) => (
-                <option key={p} value={p}>{p}</option>
+                <option key={p} value={p}>
+                  {p}
+                </option>
               ))}
             </select>
           </div>
           <div style={s.filterItem}>
             <label style={s.filterLabel}>Campaign</label>
-            <select style={s.filterSelect} value={campaignFilter} onChange={(e) => setCampaignFilter(e.target.value)}>
+            <select
+              style={s.filterSelect}
+              value={campaignFilter}
+              onChange={(e) => setCampaignFilter(e.target.value)}
+            >
               <option value="all">All Campaigns</option>
               {uniqueCampaigns.map((c) => (
-                <option key={c} value={c}>{c}</option>
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
             </select>
           </div>
           <div style={s.filterItem}>
             <label style={s.filterLabel}>Landing Page</label>
-            <select style={s.filterSelect} value={lpFilter} onChange={(e) => setLpFilter(e.target.value)}>
+            <select
+              style={s.filterSelect}
+              value={lpFilter}
+              onChange={(e) => setLpFilter(e.target.value)}
+            >
               <option value="all">All Pages</option>
               {uniqueLPs.map((lp) => (
-                <option key={lp} value={lp}>{lp}</option>
+                <option key={lp} value={lp}>
+                  {lp}
+                </option>
               ))}
             </select>
-          </div>
-        </div>
-
-        {/* KPI Cards */}
-        <div style={s.kpiGrid}>
-          <div style={s.kpiCard}>
-            <div style={s.kpiLabel}>Total Leads</div>
-            <div style={s.kpiValue}>{analyticsLoading ? '—' : (overview?.totalLeads ?? 0).toLocaleString()}</div>
-          </div>
-          <div style={s.kpiCard}>
-            <div style={s.kpiLabel}>Google</div>
-            <div style={s.kpiValue}>{analyticsLoading ? '—' : (overview?.platforms?.Google ?? 0).toLocaleString()}</div>
-          </div>
-          <div style={s.kpiCard}>
-            <div style={s.kpiLabel}>Meta</div>
-            <div style={s.kpiValue}>{analyticsLoading ? '—' : (overview?.platforms?.Meta ?? 0).toLocaleString()}</div>
-          </div>
-          <div style={s.kpiCard}>
-            <div style={s.kpiLabel}>YouTube</div>
-            <div style={s.kpiValue}>{analyticsLoading ? '—' : (overview?.platforms?.YouTube ?? 0).toLocaleString()}</div>
           </div>
         </div>
 
         {/* Tabs */}
         <div style={s.tabs}>
           {[
+            { key: 'analytics', label: 'Analytics' },
             { key: 'platforms', label: 'Platforms' },
             { key: 'campaigns', label: 'Campaigns' },
             { key: 'ads', label: 'Ads' },
@@ -312,6 +522,184 @@ export default function Dashboard() {
 
         {/* Content */}
         <div style={s.content}>
+          {/* ═══ REDESIGNED ANALYTICS TAB: MULTI-LINE / AREA GRAPH ═══ */}
+          {activeTab === 'analytics' && (
+            <div style={s.chartCard}>
+              {/* Header & Filter Chips */}
+              <div style={s.chartHeaderRow}>
+                <div>
+                  <h2 style={s.chartMainTitle}>Lead Growth Overview</h2>
+                  <p style={s.chartSubTitle}>Cumulative lead performance over time</p>
+                </div>
+
+                {/* Filter Chips */}
+                <div style={s.filterChipsContainer}>
+                  <span style={s.filterChipsLabel}>FILTERS:</span>
+                  {Object.entries(SERIES_CONFIG).map(([key, item]) => {
+                    const isSelected = activeSeries[key];
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => toggleSeries(key)}
+                        style={{
+                          ...s.filterChip,
+                          ...(isSelected ? s.filterChipSelected : s.filterChipUnselected),
+                        }}
+                      >
+                        <span
+                          style={{
+                            ...s.chipIndicator,
+                            backgroundColor: item.color,
+                            opacity: isSelected ? 1 : 0.35,
+                          }}
+                        />
+                        <span style={{ color: isSelected ? '#0f172a' : '#94a3b8' }}>
+                          {item.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Large SVG Multi-Line / Area Chart */}
+              <div style={s.svgChartWrapper}>
+                <svg
+                  viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+                  style={{ width: '100%', height: 'auto', display: 'block' }}
+                >
+                  <defs>
+                    {Object.entries(SERIES_CONFIG).map(([key, item]) => (
+                      <linearGradient
+                        key={`grad-${key}`}
+                        id={`area-grad-${key}`}
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop offset="0%" stopColor={item.color} stopOpacity="0.18" />
+                        <stop offset="100%" stopColor={item.color} stopOpacity="0.0" />
+                      </linearGradient>
+                    ))}
+                  </defs>
+
+                  {/* Horizontal Grid Lines & Y-Axis Labels */}
+                  {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                    const yVal = Math.round(chartInfo.maxY * (1 - ratio));
+                    const yPos = padTop + ratio * graphHeight;
+                    return (
+                      <g key={`grid-${ratio}`}>
+                        <line
+                          x1={padLeft}
+                          y1={yPos}
+                          x2={padLeft + graphWidth}
+                          y2={yPos}
+                          stroke="#f1f5f9"
+                          strokeWidth="1"
+                          strokeDasharray={ratio === 1 ? 'none' : '3 3'}
+                        />
+                        <text
+                          x={padLeft - 10}
+                          y={yPos + 4}
+                          textAnchor="end"
+                          fontSize="11"
+                          fill="#94a3b8"
+                          fontWeight="500"
+                        >
+                          {yVal}
+                        </text>
+                      </g>
+                    );
+                  })}
+
+                  {/* X-Axis Dates / Labels */}
+                  {chartInfo.points.map((pt, idx) => {
+                    const xPos = getX(idx);
+                    return (
+                      <text
+                        key={`xlabel-${idx}`}
+                        x={xPos}
+                        y={padTop + graphHeight + 22}
+                        textAnchor="middle"
+                        fontSize="11"
+                        fill="#64748b"
+                        fontWeight="500"
+                      >
+                        {pt.label}
+                      </text>
+                    );
+                  })}
+
+                  {/* Render Area Fills & Lines for Active Series */}
+                  {Object.entries(SERIES_CONFIG).map(([key, item]) => {
+                    if (!activeSeries[key]) return null;
+
+                    const coords = chartInfo.points.map((pt, idx) => ({
+                      x: getX(idx),
+                      y: getY((pt as any)[key] || 0),
+                    }));
+
+                    const linePath = getSmoothPath(coords);
+                    const areaPath = `${linePath} L ${coords[coords.length - 1].x} ${padTop + graphHeight} L ${coords[0].x} ${padTop + graphHeight} Z`;
+
+                    return (
+                      <g key={`series-${key}`}>
+                        {/* Area Fill */}
+                        <path d={areaPath} fill={`url(#area-grad-${key})`} />
+
+                        {/* Smooth Line */}
+                        <path
+                          d={linePath}
+                          fill="none"
+                          stroke={item.color}
+                          strokeWidth={key === 'Total' ? '3' : '2.2'}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+
+                        {/* Point Circles */}
+                        {coords.map((c, i) => (
+                          <circle
+                            key={`dot-${key}-${i}`}
+                            cx={c.x}
+                            cy={c.y}
+                            r={key === 'Total' ? '4' : '3'}
+                            fill="#ffffff"
+                            stroke={item.color}
+                            strokeWidth={key === 'Total' ? '2.5' : '2'}
+                          />
+                        ))}
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+
+              {/* Legend Footer */}
+              <div style={s.chartLegend}>
+                {Object.entries(SERIES_CONFIG).map(([key, item]) => {
+                  const isVisible = activeSeries[key];
+                  return (
+                    <div
+                      key={`legend-${key}`}
+                      onClick={() => toggleSeries(key)}
+                      style={{
+                        ...s.legendItem,
+                        opacity: isVisible ? 1 : 0.4,
+                      }}
+                    >
+                      <span style={{ ...s.legendDot, backgroundColor: item.color }} />
+                      <span style={s.legendText}>{item.label} Leads</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ═══ PLATFORMS TAB ═══ */}
           {activeTab === 'platforms' && (
             <>
               <h2 style={s.contentTitle}>Platform Performance</h2>
@@ -322,12 +710,23 @@ export default function Dashboard() {
                   {platforms.map((p) => (
                     <div key={p.platform} style={s.platformCard}>
                       <div style={s.platformTop}>
-                        <span style={{ ...s.platformDot, background: PLATFORM_COLORS[p.platform] }} />
+                        <span
+                          style={{
+                            ...s.platformDot,
+                            background: PLATFORM_COLORS[p.platform] || '#64748b',
+                          }}
+                        />
                         <span style={s.platformName}>{p.platform}</span>
                       </div>
                       <div style={s.platformValue}>{p.leads.toLocaleString()}</div>
                       <div style={s.platformBar}>
-                        <div style={{ ...s.platformBarFill, width: `${p.percentage}%`, background: PLATFORM_COLORS[p.platform] }} />
+                        <div
+                          style={{
+                            ...s.platformBarFill,
+                            width: `${p.percentage}%`,
+                            background: PLATFORM_COLORS[p.platform] || '#64748b',
+                          }}
+                        />
                       </div>
                       <div style={s.platformPct}>{p.percentage.toFixed(1)}%</div>
                     </div>
@@ -337,6 +736,7 @@ export default function Dashboard() {
             </>
           )}
 
+          {/* ═══ CAMPAIGNS TAB ═══ */}
           {activeTab === 'campaigns' && (
             <>
               <h2 style={s.contentTitle}>Campaign Performance</h2>
@@ -359,7 +759,12 @@ export default function Dashboard() {
                           <td style={s.td}>{i + 1}</td>
                           <td style={s.tdBold}>{c.campaign}</td>
                           <td style={s.td}>
-                            <span style={{ ...s.badge, background: PLATFORM_COLORS[c.platform] }}>
+                            <span
+                              style={{
+                                ...s.badge,
+                                background: PLATFORM_COLORS[c.platform] || '#64748b',
+                              }}
+                            >
                               {c.platform}
                             </span>
                           </td>
@@ -373,6 +778,7 @@ export default function Dashboard() {
             </>
           )}
 
+          {/* ═══ ADS TAB ═══ */}
           {activeTab === 'ads' && (
             <>
               <h2 style={s.contentTitle}>Ad Performance</h2>
@@ -397,7 +803,12 @@ export default function Dashboard() {
                           <td style={s.tdBold}>{a.ad}</td>
                           <td style={s.td}>{a.campaign}</td>
                           <td style={s.td}>
-                            <span style={{ ...s.badge, background: PLATFORM_COLORS[a.platform] }}>
+                            <span
+                              style={{
+                                ...s.badge,
+                                background: PLATFORM_COLORS[a.platform] || '#64748b',
+                              }}
+                            >
                               {a.platform}
                             </span>
                           </td>
@@ -411,6 +822,7 @@ export default function Dashboard() {
             </>
           )}
 
+          {/* ═══ LANDING PAGES TAB ═══ */}
           {activeTab === 'landingPages' && (
             <>
               <h2 style={s.contentTitle}>Landing Page Performance</h2>
@@ -430,7 +842,9 @@ export default function Dashboard() {
                       {landingPages.map((lp, i) => (
                         <tr key={lp.path}>
                           <td style={s.td}>{i + 1}</td>
-                          <td style={s.tdCode}><code style={s.code}>{lp.path}</code></td>
+                          <td style={s.tdCode}>
+                            <code style={s.code}>{lp.path}</code>
+                          </td>
                           <td style={s.tdNum}>{lp.leads.toLocaleString()}</td>
                         </tr>
                       ))}
@@ -441,9 +855,34 @@ export default function Dashboard() {
             </>
           )}
 
+          {/* ═══ LEADS TAB ═══ */}
           {activeTab === 'leads' && (
             <>
-              <h2 style={s.contentTitle}>Lead Details ({filteredLeads.length})</h2>
+              <div style={s.leadsHeader}>
+                <h2 style={s.contentTitle}>Lead Details ({filteredLeads.length})</h2>
+                {totalPages > 1 && (
+                  <div style={s.pagination}>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      style={currentPage === 1 ? s.pageButtonDisabled : s.pageButton}
+                    >
+                      ← Prev
+                    </button>
+                    <span style={s.pageInfo}>
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      style={currentPage === totalPages ? s.pageButtonDisabled : s.pageButton}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {loading ? (
                 <p style={s.empty}>Connecting...</p>
               ) : filteredLeads.length === 0 ? (
@@ -464,18 +903,25 @@ export default function Dashboard() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredLeads.map((row) => (
+                        {paginatedLeads.map((row) => (
                           <tr key={row.index}>
                             <td style={s.td}>{row.index}</td>
                             <td style={s.tdBold}>{row.fullName}</td>
                             <td style={s.td}>{row.phone}</td>
                             <td style={s.td}>
-                              <span style={{ ...s.badge, background: PLATFORM_COLORS[row.platform] }}>
+                              <span
+                                style={{
+                                  ...s.badge,
+                                  background: PLATFORM_COLORS[row.platform] || '#64748b',
+                                }}
+                              >
                                 {row.platform}
                               </span>
                             </td>
                             <td style={s.td}>{row.campaign || '—'}</td>
-                            <td style={s.tdCode}><code style={s.code}>{row.landingPage || '/'}</code></td>
+                            <td style={s.tdCode}>
+                              <code style={s.code}>{row.landingPage || '/'}</code>
+                            </td>
                             <td style={s.tdMuted}>{row.timestamp}</td>
                           </tr>
                         ))}
@@ -485,21 +931,51 @@ export default function Dashboard() {
 
                   {/* Mobile cards */}
                   <div className="dash-cards">
-                    {filteredLeads.map((row) => (
+                    {paginatedLeads.map((row) => (
                       <div key={row.index} style={s.mobileCard}>
                         <div style={s.mobileTop}>
                           <span style={s.mobileIndex}>#{row.index}</span>
-                          <span style={{ ...s.badge, background: PLATFORM_COLORS[row.platform] }}>
+                          <span
+                            style={{
+                              ...s.badge,
+                              background: PLATFORM_COLORS[row.platform] || '#64748b',
+                            }}
+                          >
                             {row.platform}
                           </span>
                         </div>
                         <p style={s.mobileName}>{row.fullName}</p>
                         <p style={s.mobilePhone}>{row.phone}</p>
-                        {row.campaign && <p style={s.mobileMeta}>Campaign: {row.campaign}</p>}
+                        {row.campaign && (
+                          <p style={s.mobileMeta}>Campaign: {row.campaign}</p>
+                        )}
                         <p style={s.mobileTime}>{row.timestamp}</p>
                       </div>
                     ))}
                   </div>
+
+                  {/* Pagination for mobile */}
+                  {totalPages > 1 && (
+                    <div style={s.paginationMobile} className="dash-cards">
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        style={currentPage === 1 ? s.pageButtonDisabled : s.pageButton}
+                      >
+                        ← Prev
+                      </button>
+                      <span style={s.pageInfo}>
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        style={currentPage === totalPages ? s.pageButtonDisabled : s.pageButton}
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </>
@@ -531,13 +1007,21 @@ export default function Dashboard() {
                 <div style={msg.role === 'user' ? s.bubbleUser : s.bubbleBot}>
                   {msg.text.split('\n').map((line, j) => (
                     <span key={j}>
-                      {line.replace(/\*\*(.*?)\*\*/g, '«$1»').split('«').map((part, k) => {
-                        if (part.includes('»')) {
-                          const [bold, rest] = part.split('»');
-                          return <span key={k}><strong>{bold}</strong>{rest}</span>;
-                        }
-                        return <span key={k}>{part}</span>;
-                      })}
+                      {line
+                        .replace(/\*\*(.*?)\*\*/g, '«$1»')
+                        .split('«')
+                        .map((part, k) => {
+                          if (part.includes('»')) {
+                            const [bold, rest] = part.split('»');
+                            return (
+                              <span key={k}>
+                                <strong>{bold}</strong>
+                                {rest}
+                              </span>
+                            );
+                          }
+                          return <span key={k}>{part}</span>;
+                        })}
                       <br />
                     </span>
                   ))}
@@ -553,7 +1037,11 @@ export default function Dashboard() {
           </div>
 
           <div style={s.chatQuick}>
-            {['Which platform has the most leads?', 'Top campaign?', 'Compare Google and Meta'].map((q) => (
+            {[
+              'Which platform has the most leads?',
+              'Top campaign?',
+              'Compare Google and Meta',
+            ].map((q) => (
               <button key={q} style={s.quickBtn} onClick={() => setChatInput(q)}>
                 {q}
               </button>
@@ -595,7 +1083,7 @@ export default function Dashboard() {
 }
 
 /* ═══════════════════════════════════════
-   CLEAN PROFESSIONAL STYLES
+   STYLES
    ═══════════════════════════════════════ */
 const s: Record<string, React.CSSProperties> = {
   page: {
@@ -741,31 +1229,6 @@ const s: Record<string, React.CSSProperties> = {
     outline: 'none',
   },
 
-  // KPI Cards
-  kpiGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '16px',
-    marginBottom: '24px',
-  },
-  kpiCard: {
-    background: '#fff',
-    padding: '20px',
-    borderRadius: '12px',
-    border: '1px solid #e2e8f0',
-  },
-  kpiLabel: {
-    fontSize: '13px',
-    fontWeight: 600,
-    color: '#64748b',
-    marginBottom: '8px',
-  },
-  kpiValue: {
-    fontSize: '32px',
-    fontWeight: 700,
-    color: '#0f172a',
-  },
-
   // Tabs
   tabs: {
     display: 'flex',
@@ -822,6 +1285,104 @@ const s: Record<string, React.CSSProperties> = {
     padding: '60px 20px',
   },
 
+  /* ── Chart Card Styles ── */
+  chartCard: {
+    background: '#ffffff',
+    borderRadius: '8px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
+  },
+  chartHeaderRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '16px',
+    marginBottom: '4px',
+  },
+  chartMainTitle: {
+    margin: '0 0 4px',
+    fontSize: '20px',
+    fontWeight: 700,
+    color: '#0f172a',
+  },
+  chartSubTitle: {
+    margin: 0,
+    fontSize: '13px',
+    color: '#64748b',
+  },
+  filterChipsContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '8px',
+  },
+  filterChipsLabel: {
+    fontSize: '11px',
+    fontWeight: 700,
+    color: '#64748b',
+    letterSpacing: '0.5px',
+    marginRight: '2px',
+  },
+  filterChip: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '6px 12px',
+    borderRadius: '20px',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  filterChipSelected: {
+    background: '#ffffff',
+    border: '1px solid #cbd5e1',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+  },
+  filterChipUnselected: {
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+  },
+  chipIndicator: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    display: 'inline-block',
+  },
+  svgChartWrapper: {
+    width: '100%',
+    overflowX: 'auto',
+  },
+  chartLegend: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '20px',
+    paddingTop: '10px',
+    borderTop: '1px solid #f1f5f9',
+  },
+  legendItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    cursor: 'pointer',
+    userSelect: 'none',
+  },
+  legendDot: {
+    width: '10px',
+    height: '10px',
+    borderRadius: '50%',
+    display: 'inline-block',
+  },
+  legendText: {
+    fontSize: '13px',
+    fontWeight: 500,
+    color: '#475569',
+  },
+
   // Platforms
   platformsGrid: {
     display: 'grid',
@@ -872,6 +1433,55 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: '13px',
     fontWeight: 600,
     color: '#64748b',
+  },
+
+  // Leads header with pagination
+  leadsHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px',
+    flexWrap: 'wrap',
+    gap: '12px',
+  },
+
+  // Pagination
+  pagination: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  paginationMobile: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+    marginTop: '16px',
+  },
+  pageButton: {
+    background: '#10b981',
+    color: '#fff',
+    border: 'none',
+    padding: '6px 14px',
+    borderRadius: '6px',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  pageButtonDisabled: {
+    background: '#e2e8f0',
+    color: '#94a3b8',
+    border: 'none',
+    padding: '6px 14px',
+    borderRadius: '6px',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'not-allowed',
+  },
+  pageInfo: {
+    fontSize: '14px',
+    color: '#64748b',
+    fontWeight: 600,
   },
 
   // Table
