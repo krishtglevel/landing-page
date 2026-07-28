@@ -5,6 +5,8 @@ import { useEffect, useState, useRef } from 'react';
 /* ─── Types ─── */
 type Submission = {
   index: number;
+  leadId?: string;
+  touchpointId?: string;
   fullName: string;
   phone: string;
   timestamp: string;
@@ -22,7 +24,24 @@ type Submission = {
   landingPage: string;
   landingPageUrl?: string;
   referrer?: string;
+  formSource?: string;
+  sourceType?: string;
+  userAgent?: string;
+  ipAddress?: string;
+  language?: string;
+  timezone?: string;
+  browserName?: string;
+  browserVersion?: string;
+  osName?: string;
+  osVersion?: string;
+  deviceType?: string;
+  deviceVendor?: string;
+  deviceModel?: string;
+  firstTouchAt?: string;
+  lastTouchAt?: string;
+  totalTouchpoints?: number;
 };
+
 function getUtmId(submission: Submission): string {
   if (submission.utmId?.trim()) {
     return submission.utmId.trim();
@@ -44,6 +63,7 @@ function getUtmId(submission: Submission): string {
     return '';
   }
 }
+
 type OverviewData = {
   totalLeads: number;
   platforms: Record<string, number>;
@@ -115,13 +135,6 @@ export default function Dashboard() {
   const [connected, setConnected] = useState(false);
   const prevLengthRef = useRef(0);
 
-  const [overview, setOverview] = useState<OverviewData | null>(null);
-  const [platforms, setPlatforms] = useState<PlatformData[]>([]);
-  const [campaigns, setCampaigns] = useState<CampaignData[]>([]);
-  const [ads, setAds] = useState<AdData[]>([]);
-  const [landingPages, setLandingPages] = useState<LandingPageData[]>([]);
-  const [analyticsLoading, setAnalyticsLoading] = useState(true);
-
   const [range, setRange] = useState('all');
   const [platformFilter, setPlatformFilter] = useState('all');
   const [campaignFilter, setCampaignFilter] = useState('all');
@@ -179,39 +192,6 @@ export default function Dashboard() {
     es.onerror = () => setConnected(false);
     return () => es.close();
   }, []);
-
-  /* ── Fetch analytics ── */
-  const fetchAnalytics = async () => {
-    setAnalyticsLoading(true);
-    try {
-      const params = `?range=${range}`;
-      const [ovRes, plRes, caRes, adRes, lpRes] = await Promise.all([
-        fetch(`/api/analytics/overview${params}`),
-        fetch(`/api/analytics/platforms${params}`),
-        fetch(`/api/analytics/campaigns${params}`),
-        fetch(`/api/analytics/ads${params}`),
-        fetch(`/api/analytics/landing-pages${params}`),
-      ]);
-      if (ovRes.ok) setOverview(await ovRes.json());
-      if (plRes.ok) setPlatforms(await plRes.json());
-      if (caRes.ok) setCampaigns(await caRes.json());
-      if (adRes.ok) setAds(await adRes.json());
-      if (lpRes.ok) setLandingPages(await lpRes.json());
-    } catch (err) {
-      console.error('Analytics fetch error:', err);
-    }
-    setAnalyticsLoading(false);
-  };
-
-  useEffect(() => {
-    fetchAnalytics();
-  }, [range]);
-
-  useEffect(() => {
-    if (data.length > 0 && !loading) {
-      fetchAnalytics();
-    }
-  }, [data.length]);
 
   /* ── Chat ── */
   const sendChat = async () => {
@@ -299,8 +279,164 @@ export default function Dashboard() {
 
   const filteredData = applyFilters(data);
 
-  const filteredCampaigns = campaigns.filter((c) => {
-    if (platformFilter !== 'all' && c.platform !== platformFilter) return false;
+  /*
+   * Build all dashboard analytics directly
+   * from touchpoint rows received through SSE.
+   */
+
+  const platformMap = filteredData.reduce<Record<string, number>>(
+    (accumulator, submission) => {
+      const platform = submission.platform?.trim() || 'Direct';
+
+      accumulator[platform] = (accumulator[platform] || 0) + 1;
+
+      return accumulator;
+    },
+    {}
+  );
+
+  const totalPlatformInteractions = Object.values(platformMap).reduce(
+    (total, count) => total + count,
+    0
+  );
+
+  const platforms: PlatformData[] = Object.entries(platformMap)
+    .map(([platform, leads]) => ({
+      platform,
+      leads,
+
+      percentage:
+        totalPlatformInteractions > 0
+          ? (leads / totalPlatformInteractions) * 100
+          : 0,
+    }))
+    .sort((first, second) => second.leads - first.leads);
+
+  const campaignMap = filteredData.reduce<
+    Record<
+      string,
+      {
+        campaign: string;
+        platform: string;
+        leads: number;
+      }
+    >
+  >((accumulator, submission) => {
+    const campaign =
+      submission.utmCampaign?.trim() ||
+      submission.campaign?.trim() ||
+      'Unassigned Campaign';
+
+    const platform = submission.platform?.trim() || 'Direct';
+
+    const key = `${platform}::${campaign}`;
+
+    if (!accumulator[key]) {
+      accumulator[key] = {
+        campaign,
+        platform,
+        leads: 0,
+      };
+    }
+
+    accumulator[key].leads += 1;
+
+    return accumulator;
+  }, {});
+
+  const campaigns: CampaignData[] = Object.values(campaignMap).sort(
+    (first, second) => second.leads - first.leads
+  );
+
+  const adMap = filteredData.reduce<
+    Record<
+      string,
+      {
+        ad: string;
+        campaign: string;
+        platform: string;
+        leads: number;
+      }
+    >
+  >((accumulator, submission) => {
+    const ad = submission.utmContent?.trim() || 'Unassigned Ad';
+
+    const campaign =
+      submission.utmCampaign?.trim() ||
+      submission.campaign?.trim() ||
+      'Unassigned Campaign';
+
+    const platform = submission.platform?.trim() || 'Direct';
+
+    const key = [platform, campaign, ad].join('::');
+
+    if (!accumulator[key]) {
+      accumulator[key] = {
+        ad,
+        campaign,
+        platform,
+        leads: 0,
+      };
+    }
+
+    accumulator[key].leads += 1;
+
+    return accumulator;
+  }, {});
+
+  const ads: AdData[] = Object.values(adMap).sort(
+    (first, second) => second.leads - first.leads
+  );
+
+  const landingPageMap = filteredData.reduce<Record<string, number>>(
+    (accumulator, submission) => {
+      const path = submission.landingPage?.trim() || '/';
+
+      accumulator[path] = (accumulator[path] || 0) + 1;
+
+      return accumulator;
+    },
+    {}
+  );
+
+  const landingPages: LandingPageData[] = Object.entries(landingPageMap)
+    .map(([path, leads]) => ({
+      path,
+      leads,
+    }))
+    .sort((first, second) => second.leads - first.leads);
+
+  const uniqueLeadCount = new Set(
+    filteredData.map((submission) => submission.leadId || submission.phone)
+  ).size;
+
+  const overview: OverviewData = {
+    totalLeads: filteredData.length,
+
+    platforms: platformMap,
+
+    topCampaign:
+      campaigns.length > 0
+        ? {
+            name: campaigns[0].campaign,
+            leads: campaigns[0].leads,
+          }
+        : null,
+
+    topLandingPage:
+      landingPages.length > 0
+        ? {
+            path: landingPages[0].path,
+            leads: landingPages[0].leads,
+          }
+        : null,
+  };
+
+  const filteredCampaigns = campaigns.filter((campaign) => {
+    if (platformFilter !== 'all' && campaign.platform !== platformFilter) {
+      return false;
+    }
+
     return true;
   });
 
@@ -1084,11 +1220,8 @@ export default function Dashboard() {
               />
               <DetailItem label="UTM Content / Ad" value={selectedLead.utmContent} />
               <DetailItem label="UTM Term / Audience" value={selectedLead.utmTerm} />
-<DetailItem
-  label="UTM ID"
-  value={getUtmId(selectedLead)}
-  copyable
-/>              <DetailItem label="GCLID" value={selectedLead.gclid} copyable />
+              <DetailItem label="UTM ID" value={getUtmId(selectedLead)} copyable />
+              <DetailItem label="GCLID" value={selectedLead.gclid} copyable />
               <DetailItem label="FBCLID" value={selectedLead.fbclid} copyable />
               <DetailItem label="Landing Page Path" value={selectedLead.landingPage} />
               <DetailItem

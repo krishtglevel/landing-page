@@ -1,67 +1,327 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, {
+  Schema,
+  Document,
+  Types,
+} from 'mongoose';
 
-export interface ISubmission extends Document {
-  fullName: string;
-  phone: string;
+export interface ITouchpoint {
+  _id?: Types.ObjectId;
 
-  attribution?: {
-    utmSource?: string;
-    utmMedium?: string;
-    utmCampaign?: string;
-    utmContent?: string;
-    utmTerm?: string;
-    utmId?: string;
+  touchpointKey: string;
 
-    gclid?: string;
-    fbclid?: string;
+  platform: string;
+  formSource: string;
+  sourceType: string;
 
-    landingPage?: {
-      url?: string;
-      path?: string;
-    };
+  utmSource: string;
+  utmMedium: string;
+  utmCampaign: string;
+  utmContent: string;
+  utmTerm: string;
+  utmId: string;
 
-    referrer?: string;
+  gclid: string;
+  fbclid: string;
+
+  landingPage: {
+    url: string;
+    path: string;
   };
 
+  referrer: string;
+
+  userAgent: string;
+  ipAddress: string;
+  language: string;
+  timezone: string;
+
+  browser: {
+    name: string;
+    version: string;
+  };
+
+  os: {
+    name: string;
+    version: string;
+  };
+
+  device: {
+    type: string;
+    vendor: string;
+    model: string;
+  };
+
+  capturedAt: Date;
+}
+
+export interface ISubmission
+  extends Document {
+  fullName: string;
+
+  phone: string;
+
+  touchpoints: ITouchpoint[];
+
+  firstTouchAt: Date;
+
+  lastTouchAt: Date;
+
+  totalTouchpoints: number;
+
   createdAt: Date;
+
   updatedAt: Date;
 }
 
-const SubmissionSchema = new Schema<ISubmission>(
-  {
-    fullName: {
-      type: String,
-      required: true,
-    },
-
-    phone: {
-      type: String,
-      required: true,
-    },
-
-    attribution: {
-      utmSource: String,
-      utmMedium: String,
-      utmCampaign: String,
-      utmContent: String,
-      utmTerm: String,
-      utmId: String,
-
-      gclid: String,
-      fbclid: String,
-
-      landingPage: {
-        url: String,
-        path: String,
+const TouchpointSchema =
+  new Schema<ITouchpoint>(
+    {
+      touchpointKey: {
+        type: String,
+        required: true,
+        trim: true,
       },
 
-      referrer: String,
-    },
-  },
-  {
-    timestamps: true,
-  }
-);
+      platform: {
+        type: String,
+        default: 'Direct',
+        trim: true,
+      },
 
-export default mongoose.models.Submission ||
-  mongoose.model<ISubmission>('Submission', SubmissionSchema);
+      formSource: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      sourceType: {
+        type: String,
+        default: 'landing_page',
+        trim: true,
+      },
+
+      utmSource: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      utmMedium: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      utmCampaign: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      utmContent: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      utmTerm: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      utmId: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      gclid: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      fbclid: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      landingPage: {
+        url: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+
+        path: {
+          type: String,
+          default: '/',
+          trim: true,
+        },
+      },
+
+      referrer: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      userAgent: {
+        type: String,
+        default: '',
+      },
+
+      ipAddress: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      language: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      timezone: {
+        type: String,
+        default: '',
+        trim: true,
+      },
+
+      browser: {
+        name: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+
+        version: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+      },
+
+      os: {
+        name: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+
+        version: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+      },
+
+      device: {
+        type: {
+          type: String,
+          default: 'desktop',
+          trim: true,
+        },
+
+        vendor: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+
+        model: {
+          type: String,
+          default: '',
+          trim: true,
+        },
+      },
+
+      capturedAt: {
+        type: Date,
+        default: Date.now,
+        required: true,
+      },
+    },
+    {
+      _id: true,
+    }
+  );
+
+const SubmissionSchema =
+  new Schema<ISubmission>(
+    {
+      fullName: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      phone: {
+        type: String,
+        required: true,
+        unique: true,
+        index: true,
+        trim: true,
+      },
+
+      touchpoints: {
+        type: [TouchpointSchema],
+        default: [],
+      },
+
+      firstTouchAt: {
+        type: Date,
+        required: true,
+        default: Date.now,
+      },
+
+      lastTouchAt: {
+        type: Date,
+        required: true,
+        default: Date.now,
+      },
+
+      totalTouchpoints: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+    },
+    {
+      timestamps: true,
+    }
+  );
+
+SubmissionSchema.index({
+  'touchpoints.touchpointKey': 1,
+});
+
+SubmissionSchema.index({
+  'touchpoints.utmSource': 1,
+});
+
+SubmissionSchema.index({
+  'touchpoints.utmCampaign': 1,
+});
+
+SubmissionSchema.index({
+  'touchpoints.utmId': 1,
+});
+
+SubmissionSchema.index({
+  'touchpoints.formSource': 1,
+});
+
+SubmissionSchema.index({
+  lastTouchAt: -1,
+});
+
+export default
+  mongoose.models.Submission ||
+  mongoose.model<ISubmission>(
+    'Submission',
+    SubmissionSchema
+  );
