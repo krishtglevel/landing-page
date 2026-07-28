@@ -2,26 +2,38 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongodb';
 import Submission from '@/lib/Submission';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
+    await connectDB();
+
     const body = await req.json();
 
-    // -----------------------------
-    // 1. Get submitted user details
-    // -----------------------------
-    const fullName = (body.fullName || '').toString().trim();
-    const phone = (body.phone || '').toString().trim();
+    const fullName =
+      typeof body.fullName === 'string'
+        ? body.fullName.trim()
+        : '';
 
-    // Attribution comes from the landing page URL
-    const attribution = body.attribution || null;
+    const rawPhone =
+      typeof body.phone === 'string'
+        ? body.phone
+        : '';
 
-    // -----------------------------
-    // 2. Validate full name
-    // -----------------------------
+    const normalizedPhone = rawPhone
+      .replace(/\D/g, '')
+      .slice(-10);
+
+    const attribution =
+      body.attribution &&
+      typeof body.attribution === 'object'
+        ? body.attribution
+        : {};
+
     if (!fullName) {
       return NextResponse.json(
         {
-          error: 'Full name is required.',
+          error: 'Please enter your full name.',
         },
         {
           status: 400,
@@ -29,15 +41,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // -----------------------------
-    // 3. Validate phone number
-    // -----------------------------
-    const digits = phone.replace(/\D/g, '');
-
-    if (digits.length !== 10) {
+    if (normalizedPhone.length !== 10) {
       return NextResponse.json(
         {
-          error: 'Phone number must be exactly 10 digits.',
+          error:
+            'Phone number must be exactly 10 digits.',
         },
         {
           status: 400,
@@ -45,91 +53,111 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const normalizedPhone = digits;
+    const existingSubmission =
+      await Submission.findOne({
+        phone: normalizedPhone,
+      }).lean();
 
-    // -----------------------------
-    // 4. Connect to MongoDB
-    // -----------------------------
-    await connectDB();
-
-    // -----------------------------
-    // 5. Check duplicate phone number
-    // -----------------------------
-    const submissions = await Submission.find()
-      .select('phone')
-      .lean();
-
-    const alreadyRegistered = submissions.some((doc: any) => {
-      const existingDigits = (doc.phone || '')
-        .toString()
-        .replace(/\D/g, '');
-
-      return existingDigits === normalizedPhone;
-    });
-
-    if (alreadyRegistered) {
+    if (existingSubmission) {
       return NextResponse.json(
         {
           error: 'You are already registered.',
         },
         {
-          status: 400,
+          status: 409,
         }
       );
     }
 
-    // -----------------------------
-    // 6. Save lead + attribution
-    // -----------------------------
-    const submission = await Submission.create({
-      fullName,
-      phone: normalizedPhone,
-      attribution,
-    });
+    const submission =
+      await Submission.create({
+        fullName,
+        phone: normalizedPhone,
 
-    // -----------------------------
-    // 7. Send data to Google Sheets
-    // -----------------------------
-    if (process.env.GOOGLE_SCRIPT_URL) {
-      const timestamp = new Date().toLocaleString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-      });
+        attribution: {
+          utmSource:
+            attribution.utmSource ||
+            attribution.utm_source ||
+            '',
 
-      await fetch(process.env.GOOGLE_SCRIPT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+          utmMedium:
+            attribution.utmMedium ||
+            attribution.utm_medium ||
+            '',
+
+          utmCampaign:
+            attribution.utmCampaign ||
+            attribution.utm_campaign ||
+            '',
+
+          utmContent:
+            attribution.utmContent ||
+            attribution.utm_content ||
+            '',
+
+          utmTerm:
+            attribution.utmTerm ||
+            attribution.utm_term ||
+            '',
+
+          utmId:
+            attribution.utmId ||
+            attribution.utm_id ||
+            '',
+
+          gclid:
+            attribution.gclid || '',
+
+          fbclid:
+            attribution.fbclid || '',
+
+          landingPage: {
+            url:
+              attribution.landingPage?.url ||
+              attribution.landingPageUrl ||
+              attribution.landing_page_url ||
+              '',
+
+            path:
+              attribution.landingPage?.path ||
+              '/',
+          },
+
+          referrer:
+            attribution.referrer || '',
         },
-        body: JSON.stringify({
-          timestamp,
-          fullName,
-          phone: normalizedPhone,
-          attribution,
-        }),
       });
-    }
-
-    // -----------------------------
-    // 8. Return success response
-    // -----------------------------
-    return NextResponse.json({
-      success: true,
-      message: 'Submission saved successfully.',
-      data: {
-        id: submission._id,
-      },
-    });
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error
-        ? err.message
-        : 'Server error.';
-
-    console.error('[submit]', message);
 
     return NextResponse.json(
       {
-        error: message,
+        success: true,
+        message:
+          'Registration completed successfully.',
+
+        data: {
+          id: submission._id.toString(),
+          fullName: submission.fullName,
+          phone: submission.phone,
+          attribution:
+            submission.attribution,
+          createdAt:
+            submission.createdAt,
+        },
+      },
+      {
+        status: 201,
+      }
+    );
+  } catch (error) {
+    console.error(
+      '[api/submit] Submission error:',
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          'Unable to submit your details.',
       },
       {
         status: 500,

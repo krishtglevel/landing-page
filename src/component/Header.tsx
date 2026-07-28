@@ -30,65 +30,271 @@ export default function PromoPage() {
   };
 
   const handleSubmit = async () => {
-  setError('');
-  setErrorTitle('Invalid Details');
+    setError('');
+    setErrorTitle('Invalid Details');
 
-  if (!fullName.trim()) {
-    setError('Please enter your full name.');
-    return;
-  }
+    const trimmedName = fullName.trim();
+    const digits = phone.replace(/\D/g, '').slice(-10);
 
-  const digits = phone.replace(/\D/g, '');
+    if (!trimmedName) {
+      setError('Please enter your full name.');
+      return;
+    }
 
-  if (digits.length !== 10) {
-    setError('Phone number must be exactly 10 digits.');
-    return;
-  }
+    if (digits.length !== 10) {
+      setError('Phone number must be exactly 10 digits.');
+      return;
+    }
 
-  setLoading(true);
+    setLoading(true);
 
-  try {
-    // Get marketing attribution captured from the URL
-    const storedAttribution = sessionStorage.getItem(
+    try {
+      const storedAttribution = sessionStorage.getItem(
+        'marketing_attribution'
+      );
+
+      let savedAttribution: Record<string, any> = {};
+
+      try {
+        savedAttribution = storedAttribution
+          ? JSON.parse(storedAttribution)
+          : {};
+      } catch {
+        savedAttribution = {};
+      }
+
+      const params = new URLSearchParams(window.location.search);
+
+      let finalUtmId =
+        params.get('utm_id') ||
+        savedAttribution.utmId ||
+        savedAttribution.utm_id ||
+        '';
+
+      if (!finalUtmId && savedAttribution.landingPage?.url) {
+        try {
+          const savedUrl = new URL(
+            savedAttribution.landingPage.url
+          );
+
+          finalUtmId =
+            savedUrl.searchParams.get('utm_id') ||
+            savedUrl.searchParams.get('utmId') ||
+            '';
+        } catch {
+          finalUtmId = '';
+        }
+      }
+
+      const attribution = {
+        ...savedAttribution,
+
+        utmSource:
+          params.get('utm_source') ||
+          savedAttribution.utmSource ||
+          savedAttribution.utm_source ||
+          '',
+
+        utmMedium:
+          params.get('utm_medium') ||
+          savedAttribution.utmMedium ||
+          savedAttribution.utm_medium ||
+          '',
+
+        utmCampaign:
+          params.get('utm_campaign') ||
+          savedAttribution.utmCampaign ||
+          savedAttribution.utm_campaign ||
+          '',
+
+        utmContent:
+          params.get('utm_content') ||
+          savedAttribution.utmContent ||
+          savedAttribution.utm_content ||
+          '',
+
+        utmTerm:
+          params.get('utm_term') ||
+          savedAttribution.utmTerm ||
+          savedAttribution.utm_term ||
+          '',
+
+        utmId: finalUtmId,
+
+        gclid:
+          params.get('gclid') ||
+          savedAttribution.gclid ||
+          '',
+
+        fbclid:
+          params.get('fbclid') ||
+          savedAttribution.fbclid ||
+          '',
+
+        landingPage: {
+          url:
+            savedAttribution.landingPage?.url ||
+            window.location.href,
+          path:
+            savedAttribution.landingPage?.path ||
+            window.location.pathname,
+        },
+
+        referrer:
+          savedAttribution.referrer ||
+          document.referrer ||
+          '',
+      };
+
+      sessionStorage.setItem(
+        'marketing_attribution',
+        JSON.stringify(attribution)
+      );
+
+      console.log('Final UTM ID sent to API:', attribution.utmId);
+      console.log('Final attribution sent to API:', attribution);
+
+      const res = await fetch('/api/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fullName: trimmedName,
+          phone: digits,
+          attribution,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong.');
+
+        if (data.error === 'You are already registered.') {
+          setErrorTitle('Already Registered');
+        }
+
+        return;
+      }
+
+      router.push(
+        `/thank-you?name=${encodeURIComponent(trimmedName)}`
+      );
+    } catch (error) {
+      console.error('Submission error:', error);
+      setError('Network error. Please try again.');
+      setErrorTitle('Network Error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+
+    const existingRaw = sessionStorage.getItem(
       'marketing_attribution'
     );
 
-    const attribution = storedAttribution
-      ? JSON.parse(storedAttribution)
-      : null;
+    let existing: Record<string, any> = {};
 
-    const res = await fetch('/api/submit', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        fullName: fullName.trim(),
-        phone: digits,
-        attribution,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.error || 'Something went wrong.');
-
-      if (data.error === 'You are already registered.') {
-        setErrorTitle('Already Registered');
-      }
-    } else {
-      router.push(
-        `/thank-you?name=${encodeURIComponent(fullName.trim())}`
-      );
+    try {
+      existing = existingRaw
+        ? JSON.parse(existingRaw)
+        : {};
+    } catch {
+      existing = {};
     }
-  } catch {
-    setError('Network error. Please try again.');
-    setErrorTitle('Network Error');
-  } finally {
-    setLoading(false);
-  }
-};
+
+    let finalUtmId =
+      params.get('utm_id') ||
+      existing.utmId ||
+      existing.utm_id ||
+      '';
+
+    if (!finalUtmId && existing.landingPage?.url) {
+      try {
+        const savedUrl = new URL(existing.landingPage.url);
+
+        finalUtmId =
+          savedUrl.searchParams.get('utm_id') ||
+          savedUrl.searchParams.get('utmId') ||
+          '';
+      } catch {
+        finalUtmId = '';
+      }
+    }
+
+    const attribution = {
+      ...existing,
+
+      utmSource:
+        params.get('utm_source') ||
+        existing.utmSource ||
+        existing.utm_source ||
+        '',
+
+      utmMedium:
+        params.get('utm_medium') ||
+        existing.utmMedium ||
+        existing.utm_medium ||
+        '',
+
+      utmCampaign:
+        params.get('utm_campaign') ||
+        existing.utmCampaign ||
+        existing.utm_campaign ||
+        '',
+
+      utmContent:
+        params.get('utm_content') ||
+        existing.utmContent ||
+        existing.utm_content ||
+        '',
+
+      utmTerm:
+        params.get('utm_term') ||
+        existing.utmTerm ||
+        existing.utm_term ||
+        '',
+
+      utmId: finalUtmId,
+
+      gclid:
+        params.get('gclid') ||
+        existing.gclid ||
+        '',
+
+      fbclid:
+        params.get('fbclid') ||
+        existing.fbclid ||
+        '',
+
+      landingPage: {
+        url:
+          existing.landingPage?.url ||
+          window.location.href,
+        path:
+          existing.landingPage?.path ||
+          window.location.pathname,
+      },
+
+      referrer:
+        existing.referrer ||
+        document.referrer ||
+        '',
+    };
+
+    sessionStorage.setItem(
+      'marketing_attribution',
+      JSON.stringify(attribution)
+    );
+
+    console.log('Captured attribution:', attribution);
+    console.log('Captured UTM ID:', attribution.utmId);
+  }, []);
+
   useEffect(() => {
     if (timeLeft <= 0) return;
     const timer = setInterval(() => setTimeLeft((p) => p - 1), 1000);

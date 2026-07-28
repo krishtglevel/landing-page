@@ -8,12 +8,42 @@ type Submission = {
   fullName: string;
   phone: string;
   timestamp: string;
+  createdAtRaw: string;
   platform: string;
   campaign: string;
   utmSource: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmContent?: string;
+  utmTerm?: string;
+  utmId?: string;
+  gclid?: string;
+  fbclid?: string;
   landingPage: string;
+  landingPageUrl?: string;
+  referrer?: string;
 };
+function getUtmId(submission: Submission): string {
+  if (submission.utmId?.trim()) {
+    return submission.utmId.trim();
+  }
 
+  if (!submission.landingPageUrl) {
+    return '';
+  }
+
+  try {
+    const url = new URL(submission.landingPageUrl);
+
+    return (
+      url.searchParams.get('utm_id') ||
+      url.searchParams.get('utmId') ||
+      ''
+    );
+  } catch {
+    return '';
+  }
+}
 type OverviewData = {
   totalLeads: number;
   platforms: Record<string, number>;
@@ -108,6 +138,9 @@ export default function Dashboard() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
+
+  // Selected lead for complete attribution details
+  const [selectedLead, setSelectedLead] = useState<Submission | null>(null);
 
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -277,7 +310,11 @@ export default function Dashboard() {
     return true;
   });
 
-  const filteredLeads = filteredData;
+  const filteredLeads = [...filteredData].sort((a, b) => {
+    const timeA = new Date(a.createdAtRaw).getTime();
+    const timeB = new Date(b.createdAtRaw).getTime();
+    return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
+  });
 
   const uniquePlatforms = [...new Set(data.map((d) => d.platform))].filter(Boolean);
   const uniqueCampaigns = [...new Set(data.map((d) => d.campaign))].filter(Boolean);
@@ -898,8 +935,11 @@ export default function Dashboard() {
                           <th style={s.th}>Phone</th>
                           <th style={s.th}>Platform</th>
                           <th style={s.th}>Campaign</th>
+                          <th style={s.th}>Medium</th>
+                          <th style={s.th}>Ad Content</th>
                           <th style={s.th}>Page</th>
                           <th style={s.th}>Time</th>
+                          <th style={s.th}>Details</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -918,11 +958,22 @@ export default function Dashboard() {
                                 {row.platform}
                               </span>
                             </td>
-                            <td style={s.td}>{row.campaign || '—'}</td>
+                            <td style={s.td}>{row.utmCampaign || row.campaign || '—'}</td>
+                            <td style={s.td}>{row.utmMedium || '—'}</td>
+                            <td style={s.td}>{row.utmContent || '—'}</td>
                             <td style={s.tdCode}>
                               <code style={s.code}>{row.landingPage || '/'}</code>
                             </td>
                             <td style={s.tdMuted}>{row.timestamp}</td>
+                            <td style={s.td}>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedLead(row)}
+                                style={s.detailsButton}
+                              >
+                                View
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -946,10 +997,23 @@ export default function Dashboard() {
                         </div>
                         <p style={s.mobileName}>{row.fullName}</p>
                         <p style={s.mobilePhone}>{row.phone}</p>
-                        {row.campaign && (
-                          <p style={s.mobileMeta}>Campaign: {row.campaign}</p>
+                        {(row.utmCampaign || row.campaign) && (
+                          <p style={s.mobileMeta}>Campaign: {row.utmCampaign || row.campaign}</p>
+                        )}
+                        {row.utmMedium && (
+                          <p style={s.mobileMeta}>Medium: {row.utmMedium}</p>
+                        )}
+                        {row.utmContent && (
+                          <p style={s.mobileMeta}>Ad Content: {row.utmContent}</p>
                         )}
                         <p style={s.mobileTime}>{row.timestamp}</p>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedLead(row)}
+                          style={s.mobileDetailsButton}
+                        >
+                          View attribution details
+                        </button>
                       </div>
                     ))}
                   </div>
@@ -988,6 +1052,57 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* Lead attribution details modal */}
+      {selectedLead && (
+        <div style={s.modalOverlay} onClick={() => setSelectedLead(null)}>
+          <div style={s.modalCard} onClick={(event) => event.stopPropagation()}>
+            <div style={s.modalHeader}>
+              <div>
+                <h2 style={s.modalTitle}>Lead Attribution Details</h2>
+                <p style={s.modalSubtitle}>
+                  {selectedLead.fullName} · {selectedLead.phone}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedLead(null)}
+                style={s.modalClose}
+                aria-label="Close lead details"
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={s.detailGrid}>
+              <DetailItem label="Platform" value={selectedLead.platform} />
+              <DetailItem label="UTM Source" value={selectedLead.utmSource} />
+              <DetailItem label="UTM Medium" value={selectedLead.utmMedium} />
+              <DetailItem
+                label="UTM Campaign"
+                value={selectedLead.utmCampaign || selectedLead.campaign}
+              />
+              <DetailItem label="UTM Content / Ad" value={selectedLead.utmContent} />
+              <DetailItem label="UTM Term / Audience" value={selectedLead.utmTerm} />
+<DetailItem
+  label="UTM ID"
+  value={getUtmId(selectedLead)}
+  copyable
+/>              <DetailItem label="GCLID" value={selectedLead.gclid} copyable />
+              <DetailItem label="FBCLID" value={selectedLead.fbclid} copyable />
+              <DetailItem label="Landing Page Path" value={selectedLead.landingPage} />
+              <DetailItem
+                label="Landing Page URL"
+                value={selectedLead.landingPageUrl}
+                wide
+                copyable
+              />
+              <DetailItem label="Referrer" value={selectedLead.referrer} wide copyable />
+              <DetailItem label="Submitted At" value={selectedLead.timestamp} wide />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Chat FAB */}
       <button onClick={() => setChatOpen(!chatOpen)} style={s.chatFab}>
@@ -1078,6 +1193,43 @@ export default function Dashboard() {
           .dash-cards { display: flex; flex-direction: column; gap: 12px; }
         }
       `}</style>
+    </div>
+  );
+}
+
+function DetailItem({
+  label,
+  value,
+  wide = false,
+  copyable = false,
+}: {
+  label: string;
+  value?: string;
+  wide?: boolean;
+  copyable?: boolean;
+}) {
+  const displayValue = value?.trim() || 'Not available';
+
+  const copyValue = async () => {
+    if (!value?.trim()) return;
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch (error) {
+      console.error('Unable to copy attribution value:', error);
+    }
+  };
+
+  return (
+    <div style={{ ...s.detailItem, ...(wide ? s.detailItemWide : {}) }}>
+      <span style={s.detailLabel}>{label}</span>
+      <div style={s.detailValueRow}>
+        <span style={value?.trim() ? s.detailValue : s.detailValueEmpty}>{displayValue}</span>
+        {copyable && value?.trim() && (
+          <button type="button" onClick={copyValue} style={s.copyButton}>
+            Copy
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -1550,6 +1702,140 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: '13px',
     fontFamily: 'monospace',
     color: '#475569',
+  },
+
+  detailsButton: {
+    border: '1px solid #cbd5e1',
+    background: '#ffffff',
+    color: '#334155',
+    padding: '6px 10px',
+    borderRadius: '6px',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+  mobileDetailsButton: {
+    marginTop: '12px',
+    width: '100%',
+    border: '1px solid #cbd5e1',
+    background: '#f8fafc',
+    color: '#334155',
+    padding: '8px 10px',
+    borderRadius: '6px',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+
+  // Attribution details modal
+  modalOverlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(15, 23, 42, 0.55)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '20px',
+    zIndex: 2000,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: '820px',
+    maxHeight: '88vh',
+    overflowY: 'auto',
+    background: '#ffffff',
+    borderRadius: '14px',
+    boxShadow: '0 24px 70px rgba(15, 23, 42, 0.28)',
+    border: '1px solid #e2e8f0',
+  },
+  modalHeader: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: '16px',
+    padding: '20px 22px',
+    borderBottom: '1px solid #e2e8f0',
+    position: 'sticky',
+    top: 0,
+    background: '#ffffff',
+    zIndex: 1,
+  },
+  modalTitle: {
+    margin: 0,
+    fontSize: '20px',
+    fontWeight: 700,
+    color: '#0f172a',
+  },
+  modalSubtitle: {
+    margin: '4px 0 0',
+    fontSize: '13px',
+    color: '#64748b',
+  },
+  modalClose: {
+    width: '34px',
+    height: '34px',
+    borderRadius: '8px',
+    border: '1px solid #e2e8f0',
+    background: '#f8fafc',
+    color: '#475569',
+    fontSize: '24px',
+    lineHeight: 1,
+    cursor: 'pointer',
+  },
+  detailGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+    gap: '12px',
+    padding: '20px 22px 24px',
+  },
+  detailItem: {
+    background: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '9px',
+    padding: '12px',
+    minWidth: 0,
+  },
+  detailItemWide: {
+    gridColumn: '1 / -1',
+  },
+  detailLabel: {
+    display: 'block',
+    marginBottom: '6px',
+    fontSize: '11px',
+    fontWeight: 700,
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  detailValueRow: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: '10px',
+  },
+  detailValue: {
+    fontSize: '13px',
+    lineHeight: 1.5,
+    color: '#0f172a',
+    fontWeight: 600,
+    overflowWrap: 'anywhere',
+  },
+  detailValueEmpty: {
+    fontSize: '13px',
+    lineHeight: 1.5,
+    color: '#94a3b8',
+    fontStyle: 'italic',
+  },
+  copyButton: {
+    flexShrink: 0,
+    border: 'none',
+    background: '#e0e7ff',
+    color: '#4338ca',
+    padding: '4px 8px',
+    borderRadius: '5px',
+    fontSize: '11px',
+    fontWeight: 700,
+    cursor: 'pointer',
   },
 
   // Mobile cards

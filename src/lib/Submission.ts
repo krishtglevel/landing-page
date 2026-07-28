@@ -10,6 +10,7 @@ export interface ISubmission extends Document {
     utmCampaign?: string;
     utmContent?: string;
     utmTerm?: string;
+    utmId?: string;
 
     gclid?: string;
     fbclid?: string;
@@ -44,6 +45,7 @@ const SubmissionSchema = new Schema<ISubmission>(
       utmCampaign: String,
       utmContent: String,
       utmTerm: String,
+      utmId: String,
 
       gclid: String,
       fbclid: String,
