@@ -43,33 +43,15 @@ type Submission = {
 };
 
 function getUtmId(submission: Submission): string {
-  if (submission.utmId?.trim()) {
-    return submission.utmId.trim();
-  }
-
-  if (!submission.landingPageUrl) {
-    return '';
-  }
-
+  if (submission.utmId?.trim()) return submission.utmId.trim();
+  if (!submission.landingPageUrl) return '';
   try {
     const url = new URL(submission.landingPageUrl);
-
-    return (
-      url.searchParams.get('utm_id') ||
-      url.searchParams.get('utmId') ||
-      ''
-    );
+    return url.searchParams.get('utm_id') || url.searchParams.get('utmId') || '';
   } catch {
     return '';
   }
 }
-
-type OverviewData = {
-  totalLeads: number;
-  platforms: Record<string, number>;
-  topCampaign: { name: string; leads: number } | null;
-  topLandingPage: { path: string; leads: number } | null;
-};
 
 type PlatformData = { platform: string; leads: number; percentage: number };
 type CampaignData = { campaign: string; platform: string; leads: number };
@@ -79,19 +61,19 @@ type ChatMessage = { role: 'user' | 'assistant'; text: string };
 
 /* ─── Constants ─── */
 const PLATFORM_COLORS: Record<string, string> = {
-  Google: '#10b981',
-  Meta: '#1877f2',
-  YouTube: '#ff0000',
-  Direct: '#64748b',
-  Other: '#64748b',
+  Google: '#09c99b',
+  Meta: '#0f766e',
+  YouTube: '#ff5f91',
+  Direct: '#687086',
+  Other: '#9aa1b2',
 };
 
 const SERIES_CONFIG: Record<string, { label: string; color: string }> = {
-  Total: { label: 'Total', color: '#4f46e5' },
-  Google: { label: 'Google', color: '#10b981' },
-  Meta: { label: 'Meta', color: '#2563eb' },
-  YouTube: { label: 'YouTube', color: '#ef4444' },
-  Direct: { label: 'Direct', color: '#64748b' },
+  Total: { label: 'Total', color: '#0f766e' },
+  Google: { label: 'Google', color: '#09c99b' },
+  Meta: { label: 'Meta', color: '#0f766e' },
+  YouTube: { label: 'YouTube', color: '#ff5f91' },
+  Direct: { label: 'Direct', color: '#687086' },
 };
 
 const RANGE_OPTIONS = [
@@ -108,22 +90,283 @@ const LEADS_PER_PAGE = 10;
 function getSmoothPath(coords: Array<{ x: number; y: number }>) {
   if (coords.length === 0) return '';
   if (coords.length === 1) return `M ${coords[0].x} ${coords[0].y}`;
-
   let path = `M ${coords[0].x} ${coords[0].y}`;
   for (let i = 0; i < coords.length - 1; i++) {
     const p0 = coords[i === 0 ? i : i - 1];
     const p1 = coords[i];
     const p2 = coords[i + 1];
     const p3 = coords[i + 2] || p2;
-
     const cp1x = p1.x + (p2.x - p0.x) / 6;
     const cp1y = p1.y + (p2.y - p0.y) / 6;
     const cp2x = p2.x - (p3.x - p1.x) / 6;
     const cp2y = p2.y - (p3.y - p1.y) / 6;
-
     path += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
   }
   return path;
+}
+
+type IconName =
+  | 'overview'
+  | 'platforms'
+  | 'campaigns'
+  | 'ads'
+  | 'pages'
+  | 'leads'
+  | 'chat'
+  | 'search'
+  | 'collapse'
+  | 'expand'
+  | 'download'
+  | 'interactions'
+  | 'users'
+  | 'target'
+  | 'globe'
+  | 'close';
+
+function Icon({
+  name,
+  size = 18,
+  strokeWidth = 1.8,
+}: {
+  name: IconName;
+  size?: number;
+  strokeWidth?: number;
+}) {
+  const paths: Record<IconName, React.ReactNode> = {
+    overview: (
+      <>
+        <rect x="3" y="3" width="7" height="7" rx="1.4" />
+        <rect x="14" y="3" width="7" height="7" rx="1.4" />
+        <rect x="3" y="14" width="7" height="7" rx="1.4" />
+        <rect x="14" y="14" width="7" height="7" rx="1.4" />
+      </>
+    ),
+    platforms: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18" />
+        <path d="M12 3a14 14 0 0 1 0 18" />
+        <path d="M12 3a14 14 0 0 0 0 18" />
+      </>
+    ),
+    campaigns: (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <circle cx="12" cy="12" r="3" />
+        <path d="M16.5 7.5 21 3" />
+        <path d="M17 3h4v4" />
+      </>
+    ),
+    ads: (
+      <>
+        <path d="m3 11 14-6v14L3 13z" />
+        <path d="M3 11v2" />
+        <path d="m7 14 1.5 5h3L10 13" />
+        <path d="M20 9v6" />
+      </>
+    ),
+    pages: (
+      <>
+        <path d="M6 3h8l4 4v14H6z" />
+        <path d="M14 3v5h5" />
+        <path d="M9 13h6" />
+        <path d="M9 17h6" />
+      </>
+    ),
+    leads: (
+      <>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </>
+    ),
+    chat: (
+      <>
+        <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+        <path d="M8 10h.01" />
+        <path d="M12 10h.01" />
+        <path d="M16 10h.01" />
+      </>
+    ),
+    search: (
+      <>
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-4-4" />
+      </>
+    ),
+    collapse: (
+      <>
+        <path d="m15 18-6-6 6-6" />
+        <path d="M21 12H9" />
+      </>
+    ),
+    expand: (
+      <>
+        <path d="m9 18 6-6-6-6" />
+        <path d="M3 12h12" />
+      </>
+    ),
+    download: (
+      <>
+        <path d="M12 3v12" />
+        <path d="m7 10 5 5 5-5" />
+        <path d="M5 21h14" />
+      </>
+    ),
+    interactions: (
+      <>
+        <path d="M4 19V9" />
+        <path d="M10 19V5" />
+        <path d="M16 19v-7" />
+        <path d="M22 19V3" />
+      </>
+    ),
+    users: (
+      <>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="8.5" cy="7" r="4" />
+        <path d="M20 8v6" />
+        <path d="M23 11h-6" />
+      </>
+    ),
+    target: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 3v3" />
+        <path d="M21 12h-3" />
+      </>
+    ),
+    globe: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18" />
+        <path d="M12 3c3 3.2 3 14.8 0 18" />
+        <path d="M12 3c-3 3.2-3 14.8 0 18" />
+      </>
+    ),
+    close: (
+      <>
+        <path d="M6 6l12 12" />
+        <path d="M18 6 6 18" />
+      </>
+    ),
+  };
+
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {paths[name]}
+    </svg>
+  );
+}
+
+/* ─── Pagination Component ─── */
+function LeadsPagination({
+  currentPage,
+  totalPages,
+  firstVisibleLead,
+  lastVisibleLead,
+  totalLeads,
+  onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  firstVisibleLead: number;
+  lastVisibleLead: number;
+  totalLeads: number;
+  onPageChange: (page: number) => void;
+}) {
+  if (totalLeads === 0) {
+    return null;
+  }
+
+  const visiblePages: number[] = [];
+
+  const startPage = Math.max(1, currentPage - 2);
+
+  const endPage = Math.min(totalPages, startPage + 4);
+
+  for (let page = startPage; page <= endPage; page += 1) {
+    visiblePages.push(page);
+  }
+
+  return (
+    <div style={s.paginationContainer}>
+      <span style={s.paginationSummary}>
+        Showing {firstVisibleLead}–{lastVisibleLead} of {totalLeads} leads
+      </span>
+
+      <div style={s.pagination}>
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+          style={currentPage === 1 ? s.pageButtonDisabled : s.pageButton}
+        >
+          Previous
+        </button>
+
+        {startPage > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={() => onPageChange(1)}
+              style={currentPage === 1 ? s.pageNumberActive : s.pageNumber}
+            >
+              1
+            </button>
+
+            {startPage > 2 && <span style={s.paginationDots}>…</span>}
+          </>
+        )}
+
+        {visiblePages.map((page) => (
+          <button
+            key={page}
+            type="button"
+            onClick={() => onPageChange(page)}
+            style={currentPage === page ? s.pageNumberActive : s.pageNumber}
+          >
+            {page}
+          </button>
+        ))}
+
+        {endPage < totalPages && (
+          <>
+            {endPage < totalPages - 1 && <span style={s.paginationDots}>…</span>}
+
+            <button
+              type="button"
+              onClick={() => onPageChange(totalPages)}
+              style={currentPage === totalPages ? s.pageNumberActive : s.pageNumber}
+            >
+              {totalPages}
+            </button>
+          </>
+        )}
+
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
+          disabled={currentPage === totalPages}
+          style={currentPage === totalPages ? s.pageButtonDisabled : s.pageButton}
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /* ─── Main Component ─── */
@@ -134,13 +377,14 @@ export default function Dashboard() {
   const [newCount, setNewCount] = useState(0);
   const [connected, setConnected] = useState(false);
   const prevLengthRef = useRef(0);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [range, setRange] = useState('all');
   const [platformFilter, setPlatformFilter] = useState('all');
   const [campaignFilter, setCampaignFilter] = useState('all');
   const [lpFilter, setLpFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Chart Series Toggle Filter State
   const [activeSeries, setActiveSeries] = useState<Record<string, boolean>>({
     Total: true,
     Google: true,
@@ -149,26 +393,20 @@ export default function Dashboard() {
     Direct: true,
   });
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-
-  // Selected lead for complete attribution details
   const [selectedLead, setSelectedLead] = useState<Submission | null>(null);
 
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      role: 'assistant',
-      text: 'Hi! Ask me anything about your marketing data.',
-    },
+    { role: 'assistant', text: 'Hi! Ask me anything about your marketing data.' },
   ]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const [activeTab, setActiveTab] = useState<
-    'analytics' | 'platforms' | 'campaigns' | 'ads' | 'landingPages' | 'leads'
-  >('analytics');
+  const [activeSection, setActiveSection] = useState<
+    'overview' | 'platforms' | 'campaigns' | 'ads' | 'pages' | 'leads'
+  >('overview');
 
   /* ── Live stream ── */
   useEffect(() => {
@@ -179,12 +417,17 @@ export default function Dashboard() {
       setData(json);
       setLoading(false);
       setConnected(true);
-      setLastUpdated(
-        new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
-      );
+      setLastUpdated(new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }));
       if (prevLengthRef.current > 0 && json.length > prevLengthRef.current) {
         const diff = json.length - prevLengthRef.current;
         setNewCount(diff);
+
+        /*
+         * New leads appear at the top,
+         * therefore return to page 1.
+         */
+        setCurrentPage(1);
+
         setTimeout(() => setNewCount(0), 3500);
       }
       prevLengthRef.current = json.length;
@@ -209,10 +452,7 @@ export default function Dashboard() {
       const data = await res.json();
       setChatMessages((prev) => [
         ...prev,
-        {
-          role: 'assistant',
-          text: data.answer || data.error || 'Something went wrong.',
-        },
+        { role: 'assistant', text: data.answer || data.error || 'Something went wrong.' },
       ]);
     } catch {
       setChatMessages((prev) => [
@@ -231,10 +471,8 @@ export default function Dashboard() {
   const filterByDateRange = (submissions: Submission[]) => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
     return submissions.filter((s) => {
-      const submissionDate = new Date(s.timestamp);
-
+      const submissionDate = new Date(s.createdAtRaw);
       switch (range) {
         case 'today':
           return submissionDate >= today;
@@ -263,7 +501,6 @@ export default function Dashboard() {
   /* ── Apply all filters ── */
   const applyFilters = (submissions: Submission[]) => {
     let filtered = filterByDateRange(submissions);
-
     if (platformFilter !== 'all') {
       filtered = filtered.filter((s) => s.platform === platformFilter);
     }
@@ -273,170 +510,85 @@ export default function Dashboard() {
     if (lpFilter !== 'all') {
       filtered = filtered.filter((s) => s.landingPage === lpFilter);
     }
-
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (s) =>
+          s.fullName.toLowerCase().includes(query) ||
+          s.phone.includes(query) ||
+          s.campaign?.toLowerCase().includes(query) ||
+          s.utmCampaign?.toLowerCase().includes(query)
+      );
+    }
     return filtered;
   };
 
   const filteredData = applyFilters(data);
 
-  /*
-   * Build all dashboard analytics directly
-   * from touchpoint rows received through SSE.
-   */
+  /* Build analytics from touchpoint data */
+  const platformMap = filteredData.reduce<Record<string, number>>((acc, submission) => {
+    const platform = submission.platform?.trim() || 'Direct';
+    acc[platform] = (acc[platform] || 0) + 1;
+    return acc;
+  }, {});
 
-  const platformMap = filteredData.reduce<Record<string, number>>(
-    (accumulator, submission) => {
-      const platform = submission.platform?.trim() || 'Direct';
-
-      accumulator[platform] = (accumulator[platform] || 0) + 1;
-
-      return accumulator;
-    },
-    {}
-  );
-
-  const totalPlatformInteractions = Object.values(platformMap).reduce(
-    (total, count) => total + count,
-    0
-  );
+  const totalPlatformInteractions = Object.values(platformMap).reduce((total, count) => total + count, 0);
 
   const platforms: PlatformData[] = Object.entries(platformMap)
     .map(([platform, leads]) => ({
       platform,
       leads,
-
-      percentage:
-        totalPlatformInteractions > 0
-          ? (leads / totalPlatformInteractions) * 100
-          : 0,
+      percentage: totalPlatformInteractions > 0 ? (leads / totalPlatformInteractions) * 100 : 0,
     }))
-    .sort((first, second) => second.leads - first.leads);
+    .sort((a, b) => b.leads - a.leads);
 
-  const campaignMap = filteredData.reduce<
-    Record<
-      string,
-      {
-        campaign: string;
-        platform: string;
-        leads: number;
+  const campaignMap = filteredData.reduce<Record<string, { campaign: string; platform: string; leads: number }>>(
+    (acc, submission) => {
+      const campaign = submission.utmCampaign?.trim() || submission.campaign?.trim() || 'Unassigned Campaign';
+      const platform = submission.platform?.trim() || 'Direct';
+      const key = `${platform}::${campaign}`;
+      if (!acc[key]) {
+        acc[key] = { campaign, platform, leads: 0 };
       }
-    >
-  >((accumulator, submission) => {
-    const campaign =
-      submission.utmCampaign?.trim() ||
-      submission.campaign?.trim() ||
-      'Unassigned Campaign';
-
-    const platform = submission.platform?.trim() || 'Direct';
-
-    const key = `${platform}::${campaign}`;
-
-    if (!accumulator[key]) {
-      accumulator[key] = {
-        campaign,
-        platform,
-        leads: 0,
-      };
-    }
-
-    accumulator[key].leads += 1;
-
-    return accumulator;
-  }, {});
-
-  const campaigns: CampaignData[] = Object.values(campaignMap).sort(
-    (first, second) => second.leads - first.leads
-  );
-
-  const adMap = filteredData.reduce<
-    Record<
-      string,
-      {
-        ad: string;
-        campaign: string;
-        platform: string;
-        leads: number;
-      }
-    >
-  >((accumulator, submission) => {
-    const ad = submission.utmContent?.trim() || 'Unassigned Ad';
-
-    const campaign =
-      submission.utmCampaign?.trim() ||
-      submission.campaign?.trim() ||
-      'Unassigned Campaign';
-
-    const platform = submission.platform?.trim() || 'Direct';
-
-    const key = [platform, campaign, ad].join('::');
-
-    if (!accumulator[key]) {
-      accumulator[key] = {
-        ad,
-        campaign,
-        platform,
-        leads: 0,
-      };
-    }
-
-    accumulator[key].leads += 1;
-
-    return accumulator;
-  }, {});
-
-  const ads: AdData[] = Object.values(adMap).sort(
-    (first, second) => second.leads - first.leads
-  );
-
-  const landingPageMap = filteredData.reduce<Record<string, number>>(
-    (accumulator, submission) => {
-      const path = submission.landingPage?.trim() || '/';
-
-      accumulator[path] = (accumulator[path] || 0) + 1;
-
-      return accumulator;
+      acc[key].leads += 1;
+      return acc;
     },
     {}
   );
 
+  const campaigns: CampaignData[] = Object.values(campaignMap).sort((a, b) => b.leads - a.leads);
+
+  const adMap = filteredData.reduce<Record<string, { ad: string; campaign: string; platform: string; leads: number }>>(
+    (acc, submission) => {
+      const ad = submission.utmContent?.trim() || 'Unassigned Ad';
+      const campaign = submission.utmCampaign?.trim() || submission.campaign?.trim() || 'Unassigned Campaign';
+      const platform = submission.platform?.trim() || 'Direct';
+      const key = [platform, campaign, ad].join('::');
+      if (!acc[key]) {
+        acc[key] = { ad, campaign, platform, leads: 0 };
+      }
+      acc[key].leads += 1;
+      return acc;
+    },
+    {}
+  );
+
+  const ads: AdData[] = Object.values(adMap).sort((a, b) => b.leads - a.leads);
+
+  const landingPageMap = filteredData.reduce<Record<string, number>>((acc, submission) => {
+    const path = submission.landingPage?.trim() || '/';
+    acc[path] = (acc[path] || 0) + 1;
+    return acc;
+  }, {});
+
   const landingPages: LandingPageData[] = Object.entries(landingPageMap)
-    .map(([path, leads]) => ({
-      path,
-      leads,
-    }))
-    .sort((first, second) => second.leads - first.leads);
+    .map(([path, leads]) => ({ path, leads }))
+    .sort((a, b) => b.leads - a.leads);
 
-  const uniqueLeadCount = new Set(
-    filteredData.map((submission) => submission.leadId || submission.phone)
-  ).size;
+  const uniqueLeadCount = new Set(filteredData.map((s) => s.leadId || s.phone)).size;
 
-  const overview: OverviewData = {
-    totalLeads: filteredData.length,
-
-    platforms: platformMap,
-
-    topCampaign:
-      campaigns.length > 0
-        ? {
-            name: campaigns[0].campaign,
-            leads: campaigns[0].leads,
-          }
-        : null,
-
-    topLandingPage:
-      landingPages.length > 0
-        ? {
-            path: landingPages[0].path,
-            leads: landingPages[0].leads,
-          }
-        : null,
-  };
-
-  const filteredCampaigns = campaigns.filter((campaign) => {
-    if (platformFilter !== 'all' && campaign.platform !== platformFilter) {
-      return false;
-    }
-
+  const filteredCampaigns = campaigns.filter((c) => {
+    if (platformFilter !== 'all' && c.platform !== platformFilter) return false;
     return true;
   });
 
@@ -446,25 +598,46 @@ export default function Dashboard() {
     return true;
   });
 
-  const filteredLeads = [...filteredData].sort((a, b) => {
-    const timeA = new Date(a.createdAtRaw).getTime();
-    const timeB = new Date(b.createdAtRaw).getTime();
-    return (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
+  /*
+   * Sort newest leads first.
+   * createdAtRaw is used because timestamp is formatted display text.
+   */
+  const filteredLeads = [...filteredData].sort((firstLead, secondLead) => {
+    const firstTime = new Date(firstLead.createdAtRaw).getTime();
+
+    const secondTime = new Date(secondLead.createdAtRaw).getTime();
+
+    const safeFirstTime = Number.isNaN(firstTime) ? 0 : firstTime;
+
+    const safeSecondTime = Number.isNaN(secondTime) ? 0 : secondTime;
+
+    return safeSecondTime - safeFirstTime;
   });
+
+  /*
+   * Pagination
+   */
+  const totalPages = Math.max(1, Math.ceil(filteredLeads.length / LEADS_PER_PAGE));
+
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+
+  const startIndex = (safeCurrentPage - 1) * LEADS_PER_PAGE;
+
+  const endIndex = startIndex + LEADS_PER_PAGE;
+
+  const paginatedLeads = filteredLeads.slice(startIndex, endIndex);
+
+  const firstVisibleLead = filteredLeads.length === 0 ? 0 : startIndex + 1;
+
+  const lastVisibleLead = Math.min(endIndex, filteredLeads.length);
 
   const uniquePlatforms = [...new Set(data.map((d) => d.platform))].filter(Boolean);
   const uniqueCampaigns = [...new Set(data.map((d) => d.campaign))].filter(Boolean);
   const uniqueLPs = [...new Set(data.map((d) => d.landingPage))].filter(Boolean);
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredLeads.length / LEADS_PER_PAGE);
-  const startIndex = (currentPage - 1) * LEADS_PER_PAGE;
-  const endIndex = startIndex + LEADS_PER_PAGE;
-  const paginatedLeads = filteredLeads.slice(startIndex, endIndex);
-
   useEffect(() => {
     setCurrentPage(1);
-  }, [platformFilter, campaignFilter, lpFilter, range]);
+  }, [platformFilter, campaignFilter, lpFilter, range, searchQuery]);
 
   const handleDownload = () => {
     window.location.href = '/api/export';
@@ -477,8 +650,8 @@ export default function Dashboard() {
   /* ── Time-Series Cumulative Calculation for Chart ── */
   const getChartData = () => {
     const list = [...filteredData].sort((a, b) => {
-      const tA = new Date(a.timestamp).getTime();
-      const tB = new Date(b.timestamp).getTime();
+      const tA = new Date(a.createdAtRaw).getTime();
+      const tB = new Date(b.createdAtRaw).getTime();
       return (isNaN(tA) ? 0 : tA) - (isNaN(tB) ? 0 : tB);
     });
 
@@ -492,13 +665,13 @@ export default function Dashboard() {
       };
     }
 
-    let cumTotal = 0;
-    let cumGoogle = 0;
-    let cumMeta = 0;
-    let cumYouTube = 0;
-    let cumDirect = 0;
+    let cumTotal = 0,
+      cumGoogle = 0,
+      cumMeta = 0,
+      cumYouTube = 0,
+      cumDirect = 0;
 
-    const firstDate = new Date(list[0].timestamp);
+    const firstDate = new Date(list[0].createdAtRaw);
     const firstLabel = isNaN(firstDate.getTime())
       ? 'Start'
       : firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -510,16 +683,7 @@ export default function Dashboard() {
       Meta: number;
       YouTube: number;
       Direct: number;
-    }> = [
-      {
-        label: firstLabel,
-        Total: 0,
-        Google: 0,
-        Meta: 0,
-        YouTube: 0,
-        Direct: 0,
-      },
-    ];
+    }> = [{ label: firstLabel, Total: 0, Google: 0, Meta: 0, YouTube: 0, Direct: 0 }];
 
     list.forEach((sub, i) => {
       cumTotal++;
@@ -529,7 +693,7 @@ export default function Dashboard() {
       else if (p.includes('youtube')) cumYouTube++;
       else cumDirect++;
 
-      const d = new Date(sub.timestamp);
+      const d = new Date(sub.createdAtRaw);
       const lbl = isNaN(d.getTime())
         ? `#${i + 1}`
         : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -564,12 +728,12 @@ export default function Dashboard() {
   };
 
   const chartInfo = getChartData();
-  const svgWidth = 840;
-  const svgHeight = 360;
-  const padLeft = 45;
-  const padRight = 25;
-  const padTop = 25;
-  const padBottom = 40;
+  const svgWidth = 800;
+  const svgHeight = 320;
+  const padLeft = 40;
+  const padRight = 20;
+  const padTop = 20;
+  const padBottom = 35;
   const graphWidth = svgWidth - padLeft - padRight;
   const graphHeight = svgHeight - padTop - padBottom;
 
@@ -578,330 +742,518 @@ export default function Dashboard() {
   const getY = (val: number) => padTop + graphHeight - (val / chartInfo.maxY) * graphHeight;
 
   return (
-    <div style={s.page}>
-      <div style={s.container}>
-        {/* Header */}
-        <div style={s.header}>
-          <div>
-            <div style={s.brand}>
-              <div style={s.brandLogo}>TG</div>
-              <div>
-                <h1 style={s.brandTitle}>Marketing Intelligence</h1>
-                <p style={s.brandSub}>Track performance and lead journey</p>
-              </div>
+    <div className="dashboard-shell" style={s.shell}>
+      {/* Sidebar */}
+      <aside
+        className={`dashboard-sidebar ${sidebarCollapsed ? 'is-collapsed' : ''}`}
+        style={{
+          ...s.sidebar,
+          width: sidebarCollapsed ? '84px' : '260px',
+          padding: sidebarCollapsed ? '22px 14px' : '24px 20px',
+        }}
+      >
+        <div
+          style={{
+            ...s.sidebarHeader,
+            justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+          }}
+        >
+          <img src="/tg-logo.jpeg" alt="TG Levels" style={s.logoImage} />
+
+          {!sidebarCollapsed && (
+            <div style={s.brandInfo}>
+              <div style={s.brandName}>Marketing Intelligence</div>
+              <div style={s.brandCaption}>Attribution Dashboard</div>
             </div>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed((value) => !value)}
+          style={{
+            ...s.collapseButton,
+            alignSelf: sidebarCollapsed ? 'center' : 'flex-end',
+          }}
+          aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <Icon name={sidebarCollapsed ? 'expand' : 'collapse'} size={17} />
+        </button>
+
+        <button
+          onClick={handleDownload}
+          style={{
+            ...s.btnPrimary,
+            padding: sidebarCollapsed ? '12px' : '12px 16px',
+            justifyContent: 'center',
+          }}
+          title="Export report"
+        >
+          <Icon name="download" size={18} />
+          {!sidebarCollapsed && <span>Export Report</span>}
+        </button>
+
+        <nav style={s.nav}>
+          {[
+            { key: 'overview', label: 'Overview', icon: 'overview' as IconName },
+            { key: 'platforms', label: 'Platforms', icon: 'platforms' as IconName },
+            { key: 'campaigns', label: 'Campaigns', icon: 'campaigns' as IconName },
+            { key: 'ads', label: 'Ads', icon: 'ads' as IconName },
+            { key: 'pages', label: 'Pages', icon: 'pages' as IconName },
+            { key: 'leads', label: 'Leads', icon: 'leads' as IconName },
+          ].map((item) => {
+            const isActive = activeSection === item.key;
+
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() =>
+                  setActiveSection(item.key as 'overview' | 'platforms' | 'campaigns' | 'ads' | 'pages' | 'leads')
+                }
+                style={{
+                  ...(isActive ? s.navItemActive : s.navItem),
+                  justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                  padding: sidebarCollapsed ? '12px' : '12px 14px',
+                }}
+                title={sidebarCollapsed ? item.label : undefined}
+              >
+                <span style={s.navIcon}>
+                  <Icon name={item.icon} size={19} />
+                </span>
+                {!sidebarCollapsed && <span>{item.label}</span>}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div style={s.sidebarFooter}>
+          <button
+            type="button"
+            onClick={() => setChatOpen(!chatOpen)}
+            style={{
+              ...s.navItem,
+              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              padding: sidebarCollapsed ? '12px' : '12px 14px',
+            }}
+            title={sidebarCollapsed ? 'Marketing Assistant' : undefined}
+          >
+            <span style={s.navIcon}>
+              <Icon name="chat" size={19} />
+            </span>
+            {!sidebarCollapsed && <span>Marketing Assistant</span>}
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="dashboard-main" style={s.mainArea}>
+        {/* Top Header */}
+        <div style={s.topHeader}>
+          <div style={s.searchBox}>
+            <span style={s.searchIcon}>
+              <Icon name="search" size={18} />
+            </span>
+            <input
+              type="text"
+              placeholder="Search leads, campaigns, phone..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={s.searchInput}
+            />
           </div>
-          <div style={s.headerActions}>
+
+          <div style={s.headerRight}>
             {lastUpdated && <span style={s.lastUpdate}>Updated {lastUpdated}</span>}
             <div style={connected ? s.statusLive : s.statusOff}>
               <span style={s.statusDot} />
               {connected ? 'Live' : 'Reconnecting'}
             </div>
-            <button onClick={handleDownload} style={s.btnExport}>
-              ↓ Export Excel
-            </button>
+            <div style={s.profileCircle}>MA</div>
           </div>
         </div>
 
-        {/* New lead notification */}
-        {newCount > 0 && (
-          <div style={s.newLeadBanner}>
-            🎉 +{newCount} new lead{newCount > 1 ? 's' : ''} received
+        {/* Main Content Area */}
+        <div style={s.contentArea}>
+          {/* Page Heading */}
+          <div style={s.pageHeading}>
+            <div>
+              <h1 style={s.pageTitle}>Marketing Overview</h1>
+              <p style={s.pageSubtitle}>Track campaign performance, lead sources and attribution</p>
+            </div>
           </div>
-        )}
 
-        {/* Filters */}
-        <div style={s.filters}>
-          <div style={s.filterItem}>
-            <label style={s.filterLabel}>Date Range</label>
-            <select
-              style={s.filterSelect}
-              value={range}
-              onChange={(e) => setRange(e.target.value)}
-            >
-              {RANGE_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={s.filterItem}>
-            <label style={s.filterLabel}>Platform</label>
-            <select
-              style={s.filterSelect}
-              value={platformFilter}
-              onChange={(e) => setPlatformFilter(e.target.value)}
-            >
-              <option value="all">All Platforms</option>
-              {uniquePlatforms.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={s.filterItem}>
-            <label style={s.filterLabel}>Campaign</label>
-            <select
-              style={s.filterSelect}
-              value={campaignFilter}
-              onChange={(e) => setCampaignFilter(e.target.value)}
-            >
-              <option value="all">All Campaigns</option>
-              {uniqueCampaigns.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={s.filterItem}>
-            <label style={s.filterLabel}>Landing Page</label>
-            <select
-              style={s.filterSelect}
-              value={lpFilter}
-              onChange={(e) => setLpFilter(e.target.value)}
-            >
-              <option value="all">All Pages</option>
-              {uniqueLPs.map((lp) => (
-                <option key={lp} value={lp}>
-                  {lp}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div style={s.tabs}>
-          {[
-            { key: 'analytics', label: 'Analytics' },
-            { key: 'platforms', label: 'Platforms' },
-            { key: 'campaigns', label: 'Campaigns' },
-            { key: 'ads', label: 'Ads' },
-            { key: 'landingPages', label: 'Pages' },
-            { key: 'leads', label: 'Leads' },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              style={activeTab === tab.key ? s.tabActive : s.tab}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div style={s.content}>
-          {/* ═══ REDESIGNED ANALYTICS TAB: MULTI-LINE / AREA GRAPH ═══ */}
-          {activeTab === 'analytics' && (
-            <div style={s.chartCard}>
-              {/* Header & Filter Chips */}
-              <div style={s.chartHeaderRow}>
-                <div>
-                  <h2 style={s.chartMainTitle}>Lead Growth Overview</h2>
-                  <p style={s.chartSubTitle}>Cumulative lead performance over time</p>
-                </div>
-
-                {/* Filter Chips */}
-                <div style={s.filterChipsContainer}>
-                  <span style={s.filterChipsLabel}>FILTERS:</span>
-                  {Object.entries(SERIES_CONFIG).map(([key, item]) => {
-                    const isSelected = activeSeries[key];
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => toggleSeries(key)}
-                        style={{
-                          ...s.filterChip,
-                          ...(isSelected ? s.filterChipSelected : s.filterChipUnselected),
-                        }}
-                      >
-                        <span
-                          style={{
-                            ...s.chipIndicator,
-                            backgroundColor: item.color,
-                            opacity: isSelected ? 1 : 0.35,
-                          }}
-                        />
-                        <span style={{ color: isSelected ? '#0f172a' : '#94a3b8' }}>
-                          {item.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Large SVG Multi-Line / Area Chart */}
-              <div style={s.svgChartWrapper}>
-                <svg
-                  viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-                  style={{ width: '100%', height: 'auto', display: 'block' }}
-                >
-                  <defs>
-                    {Object.entries(SERIES_CONFIG).map(([key, item]) => (
-                      <linearGradient
-                        key={`grad-${key}`}
-                        id={`area-grad-${key}`}
-                        x1="0"
-                        y1="0"
-                        x2="0"
-                        y2="1"
-                      >
-                        <stop offset="0%" stopColor={item.color} stopOpacity="0.18" />
-                        <stop offset="100%" stopColor={item.color} stopOpacity="0.0" />
-                      </linearGradient>
-                    ))}
-                  </defs>
-
-                  {/* Horizontal Grid Lines & Y-Axis Labels */}
-                  {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-                    const yVal = Math.round(chartInfo.maxY * (1 - ratio));
-                    const yPos = padTop + ratio * graphHeight;
-                    return (
-                      <g key={`grid-${ratio}`}>
-                        <line
-                          x1={padLeft}
-                          y1={yPos}
-                          x2={padLeft + graphWidth}
-                          y2={yPos}
-                          stroke="#f1f5f9"
-                          strokeWidth="1"
-                          strokeDasharray={ratio === 1 ? 'none' : '3 3'}
-                        />
-                        <text
-                          x={padLeft - 10}
-                          y={yPos + 4}
-                          textAnchor="end"
-                          fontSize="11"
-                          fill="#94a3b8"
-                          fontWeight="500"
-                        >
-                          {yVal}
-                        </text>
-                      </g>
-                    );
-                  })}
-
-                  {/* X-Axis Dates / Labels */}
-                  {chartInfo.points.map((pt, idx) => {
-                    const xPos = getX(idx);
-                    return (
-                      <text
-                        key={`xlabel-${idx}`}
-                        x={xPos}
-                        y={padTop + graphHeight + 22}
-                        textAnchor="middle"
-                        fontSize="11"
-                        fill="#64748b"
-                        fontWeight="500"
-                      >
-                        {pt.label}
-                      </text>
-                    );
-                  })}
-
-                  {/* Render Area Fills & Lines for Active Series */}
-                  {Object.entries(SERIES_CONFIG).map(([key, item]) => {
-                    if (!activeSeries[key]) return null;
-
-                    const coords = chartInfo.points.map((pt, idx) => ({
-                      x: getX(idx),
-                      y: getY((pt as any)[key] || 0),
-                    }));
-
-                    const linePath = getSmoothPath(coords);
-                    const areaPath = `${linePath} L ${coords[coords.length - 1].x} ${padTop + graphHeight} L ${coords[0].x} ${padTop + graphHeight} Z`;
-
-                    return (
-                      <g key={`series-${key}`}>
-                        {/* Area Fill */}
-                        <path d={areaPath} fill={`url(#area-grad-${key})`} />
-
-                        {/* Smooth Line */}
-                        <path
-                          d={linePath}
-                          fill="none"
-                          stroke={item.color}
-                          strokeWidth={key === 'Total' ? '3' : '2.2'}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-
-                        {/* Point Circles */}
-                        {coords.map((c, i) => (
-                          <circle
-                            key={`dot-${key}-${i}`}
-                            cx={c.x}
-                            cy={c.y}
-                            r={key === 'Total' ? '4' : '3'}
-                            fill="#ffffff"
-                            stroke={item.color}
-                            strokeWidth={key === 'Total' ? '2.5' : '2'}
-                          />
-                        ))}
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
-
-              {/* Legend Footer */}
-              <div style={s.chartLegend}>
-                {Object.entries(SERIES_CONFIG).map(([key, item]) => {
-                  const isVisible = activeSeries[key];
-                  return (
-                    <div
-                      key={`legend-${key}`}
-                      onClick={() => toggleSeries(key)}
-                      style={{
-                        ...s.legendItem,
-                        opacity: isVisible ? 1 : 0.4,
-                      }}
-                    >
-                      <span style={{ ...s.legendDot, backgroundColor: item.color }} />
-                      <span style={s.legendText}>{item.label} Leads</span>
-                    </div>
-                  );
-                })}
-              </div>
+          {/* New lead notification */}
+          {newCount > 0 && (
+            <div style={s.notification}>
+              +{newCount} new lead{newCount > 1 ? 's' : ''} received
             </div>
           )}
 
-          {/* ═══ PLATFORMS TAB ═══ */}
-          {activeTab === 'platforms' && (
+          {/* Filters */}
+          <div style={s.filterCard}>
+            <div style={s.filterGrid}>
+              <div style={s.filterGroup}>
+                <label style={s.filterLabel}>DATE RANGE</label>
+                <select style={s.filterSelect} value={range} onChange={(e) => setRange(e.target.value)}>
+                  {RANGE_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={s.filterGroup}>
+                <label style={s.filterLabel}>PLATFORM</label>
+                <select
+                  style={s.filterSelect}
+                  value={platformFilter}
+                  onChange={(e) => setPlatformFilter(e.target.value)}
+                >
+                  <option value="all">All Platforms</option>
+                  {uniquePlatforms.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={s.filterGroup}>
+                <label style={s.filterLabel}>CAMPAIGN</label>
+                <select
+                  style={s.filterSelect}
+                  value={campaignFilter}
+                  onChange={(e) => setCampaignFilter(e.target.value)}
+                >
+                  <option value="all">All Campaigns</option>
+                  {uniqueCampaigns.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={s.filterGroup}>
+                <label style={s.filterLabel}>LANDING PAGE</label>
+                <select style={s.filterSelect} value={lpFilter} onChange={(e) => setLpFilter(e.target.value)}>
+                  <option value="all">All Pages</option>
+                  {uniqueLPs.map((lp) => (
+                    <option key={lp} value={lp}>
+                      {lp}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Overview Section */}
+          {activeSection === 'overview' && (
             <>
-              <h2 style={s.contentTitle}>Platform Performance</h2>
-              {platforms.length === 0 ? (
-                <p style={s.empty}>No data yet</p>
-              ) : (
-                <div style={s.platformsGrid}>
-                  {platforms.map((p) => (
-                    <div key={p.platform} style={s.platformCard}>
-                      <div style={s.platformTop}>
-                        <span
-                          style={{
-                            ...s.platformDot,
-                            background: PLATFORM_COLORS[p.platform] || '#64748b',
-                          }}
-                        />
-                        <span style={s.platformName}>{p.platform}</span>
+              {/* Metric Cards */}
+              <div style={s.metricsGrid}>
+                <div style={s.metricCard}>
+                  <div style={s.metricHeader}>
+                    <div style={{ ...s.metricIcon, background: '#e7f5f3' }}>
+                      <span style={{ color: '#0f766e', display: 'flex' }}>
+                        <Icon name="interactions" size={20} />
+                      </span>
+                    </div>
+                    <button style={s.metricMenu}>⋮</button>
+                  </div>
+                  <div style={s.metricValue}>{filteredData.length}</div>
+                  <div style={s.metricLabel}>Total Interactions</div>
+                </div>
+
+                <div style={s.metricCard}>
+                  <div style={s.metricHeader}>
+                    <div style={{ ...s.metricIcon, background: '#e9f8ff' }}>
+                      <span style={{ color: '#38bdf8', display: 'flex' }}>
+                        <Icon name="users" size={20} />
+                      </span>
+                    </div>
+                    <button style={s.metricMenu}>⋮</button>
+                  </div>
+                  <div style={s.metricValue}>{uniqueLeadCount}</div>
+                  <div style={s.metricLabel}>Unique Leads</div>
+                </div>
+
+                <div style={s.metricCard}>
+                  <div style={s.metricHeader}>
+                    <div style={{ ...s.metricIcon, background: '#fff0ea' }}>
+                      <span style={{ color: '#ff8153', display: 'flex' }}>
+                        <Icon name="target" size={20} />
+                      </span>
+                    </div>
+                    <button style={s.metricMenu}>⋮</button>
+                  </div>
+                  <div style={s.metricValue}>{campaigns[0]?.campaign?.substring(0, 15) || 'N/A'}</div>
+                  <div style={s.metricLabel}>
+                    Top Campaign · {campaigns[0]?.leads || 0} {campaigns[0]?.leads === 1 ? 'lead' : 'leads'}
+                  </div>
+                </div>
+
+                <div style={s.metricCard}>
+                  <div style={s.metricHeader}>
+                    <div style={{ ...s.metricIcon, background: '#ffeaf1' }}>
+                      <span style={{ color: '#ff5f91', display: 'flex' }}>
+                        <Icon name="globe" size={20} />
+                      </span>
+                    </div>
+                    <button style={s.metricMenu}>⋮</button>
+                  </div>
+                  <div style={s.metricValue}>{platforms[0]?.platform || 'N/A'}</div>
+                  <div style={s.metricLabel}>
+                    Top Platform · {platforms[0]?.leads || 0} {platforms[0]?.leads === 1 ? 'lead' : 'leads'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Analytics Grid */}
+              <div style={s.analyticsGrid}>
+                {/* Lead Growth Chart */}
+                <div style={s.chartCard}>
+                  <div style={s.chartCardHeader}>
+                    <div>
+                      <h3 style={s.cardTitle}>Lead Growth Trend</h3>
+                      <p style={s.cardSubtitle}>Marketing interactions by platform</p>
+                    </div>
+                    <div style={s.chartFilters}>
+                      {Object.entries(SERIES_CONFIG).map(([key, item]) => {
+                        const isSelected = activeSeries[key];
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => toggleSeries(key)}
+                            style={{
+                              ...s.chartFilterBtn,
+                              ...(isSelected ? { background: '#f8fafc', color: '#172033' } : {}),
+                            }}
+                          >
+                            <span style={{ ...s.chartFilterDot, background: item.color }} />
+                            {item.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={s.chartWrapper}>
+                    <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} style={{ width: '100%', height: 'auto' }}>
+                      <defs>
+                        {Object.entries(SERIES_CONFIG).map(([key, item]) => (
+                          <linearGradient key={`grad-${key}`} id={`grad-${key}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={item.color} stopOpacity="0.12" />
+                            <stop offset="100%" stopColor={item.color} stopOpacity="0" />
+                          </linearGradient>
+                        ))}
+                      </defs>
+
+                      {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                        const yVal = Math.round(chartInfo.maxY * (1 - ratio));
+                        const yPos = padTop + ratio * graphHeight;
+                        return (
+                          <g key={`grid-${ratio}`}>
+                            <line
+                              x1={padLeft}
+                              y1={yPos}
+                              x2={padLeft + graphWidth}
+                              y2={yPos}
+                              stroke="#e6eaf0"
+                              strokeWidth="1"
+                            />
+                            <text x={padLeft - 8} y={yPos + 4} textAnchor="end" fontSize="10" fill="#9aa1b2">
+                              {yVal}
+                            </text>
+                          </g>
+                        );
+                      })}
+
+                      {chartInfo.points.map((pt, idx) => {
+                        const xPos = getX(idx);
+                        return (
+                          <text
+                            key={`x-${idx}`}
+                            x={xPos}
+                            y={padTop + graphHeight + 20}
+                            textAnchor="middle"
+                            fontSize="10"
+                            fill="#687086"
+                          >
+                            {pt.label}
+                          </text>
+                        );
+                      })}
+
+                      {Object.entries(SERIES_CONFIG).map(([key, item]) => {
+                        if (!activeSeries[key]) return null;
+                        const coords = chartInfo.points.map((pt, idx) => ({
+                          x: getX(idx),
+                          y: getY((pt as any)[key] || 0),
+                        }));
+                        const linePath = getSmoothPath(coords);
+                        const areaPath = `${linePath} L ${coords[coords.length - 1].x} ${padTop + graphHeight} L ${coords[0].x} ${padTop + graphHeight} Z`;
+                        return (
+                          <g key={`series-${key}`}>
+                            <path d={areaPath} fill={`url(#grad-${key})`} />
+                            <path
+                              d={linePath}
+                              fill="none"
+                              stroke={item.color}
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            {coords.map((c, i) => (
+                              <circle
+                                key={`dot-${i}`}
+                                cx={c.x}
+                                cy={c.y}
+                                r="3.5"
+                                fill="#fff"
+                                stroke={item.color}
+                                strokeWidth="2"
+                              />
+                            ))}
+                          </g>
+                        );
+                      })}
+                    </svg>
+                  </div>
+                </div>
+
+                {/* Platform Distribution */}
+                <div style={s.donutCard}>
+                  <h3 style={s.cardTitle}>Leads by Platform</h3>
+                  <div style={s.donutCenter}>
+                    <div style={s.donutValue}>{filteredData.length}</div>
+                    <div style={s.donutLabel}>Total</div>
+                  </div>
+                  <div style={s.platformList}>
+                    {platforms.slice(0, 4).map((p) => (
+                      <div key={p.platform} style={s.platformRow}>
+                        <div style={s.platformLeft}>
+                          <span
+                            style={{
+                              ...s.platformDot,
+                              background: PLATFORM_COLORS[p.platform] || '#9aa1b2',
+                            }}
+                          />
+                          <span style={s.platformName}>{p.platform}</span>
+                        </div>
+                        <div style={s.platformRight}>
+                          <span style={s.platformCount}>{p.leads}</span>
+                          <span style={s.platformPercent}>{p.percentage.toFixed(0)}%</span>
+                        </div>
                       </div>
-                      <div style={s.platformValue}>{p.leads.toLocaleString()}</div>
-                      <div style={s.platformBar}>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Recent Leads */}
+              <div style={s.tableCard}>
+                <h3 style={s.cardTitle}>Recent Leads</h3>
+                <div style={s.tableWrapper}>
+                  <table style={s.table} className="dash-table">
+                    <thead>
+                      <tr>
+                        <th style={s.th}>Name</th>
+                        <th style={s.th}>Phone</th>
+                        <th style={s.th}>Platform</th>
+                        <th style={s.th}>Campaign</th>
+                        <th style={s.th}>Time</th>
+                        <th style={s.th}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredLeads.slice(0, 5).map((row) => (
+                        <tr
+                          key={
+                            row.touchpointId ||
+                            `${row.leadId}-${row.createdAtRaw}` ||
+                            `${row.phone}-${row.index}`
+                          }
+                        >
+                          <td style={s.td}>
+                            <div style={s.leadCell}>
+                              <div style={s.avatar}>
+                                {row.fullName
+                                  .split(' ')
+                                  .map((n) => n[0])
+                                  .join('')
+                                  .substring(0, 2)
+                                  .toUpperCase()}
+                              </div>
+                              <span>{row.fullName}</span>
+                            </div>
+                          </td>
+                          <td style={s.td}>{row.phone}</td>
+                          <td style={s.td}>
+                            <span
+                              style={{
+                                ...s.platformBadge,
+                                background: PLATFORM_COLORS[row.platform] || '#9aa1b2',
+                              }}
+                            >
+                              {row.platform}
+                            </span>
+                          </td>
+                          <td style={s.td}>{row.utmCampaign || row.campaign || '—'}</td>
+                          <td style={s.tdMuted}>{row.timestamp}</td>
+                          <td style={s.td}>
+                            <button onClick={() => setSelectedLead(row)} style={s.btnView}>
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Platforms Section */}
+          {activeSection === 'platforms' && (
+            <>
+              <h2 style={s.sectionTitle}>Platform Performance</h2>
+              {platforms.length === 0 ? (
+                <div style={s.emptyState}>No platform data found</div>
+              ) : (
+                <div style={s.platformCardsGrid}>
+                  {platforms.map((p) => (
+                    <div key={p.platform} style={s.platformPerformanceCard}>
+                      <div style={s.platformCardHeader}>
                         <div
                           style={{
-                            ...s.platformBarFill,
+                            ...s.platformCardIcon,
+                            background: PLATFORM_COLORS[p.platform] || '#9aa1b2',
+                          }}
+                        >
+                          {p.platform.charAt(0)}
+                        </div>
+                        <div>
+                          <div style={s.platformCardName}>{p.platform}</div>
+                          <div style={s.platformCardMeta}>
+                            {campaigns.filter((c) => c.platform === p.platform).length} campaigns
+                          </div>
+                        </div>
+                      </div>
+                      <div style={s.platformCardValue}>{p.leads}</div>
+                      <div style={s.platformCardLabel}>interactions</div>
+                      <div style={s.platformCardBar}>
+                        <div
+                          style={{
+                            ...s.platformCardBarFill,
                             width: `${p.percentage}%`,
-                            background: PLATFORM_COLORS[p.platform] || '#64748b',
+                            background: PLATFORM_COLORS[p.platform] || '#9aa1b2',
                           }}
                         />
                       </div>
-                      <div style={s.platformPct}>{p.percentage.toFixed(1)}%</div>
+                      <div style={s.platformCardPercent}>{p.percentage.toFixed(1)}%</div>
                     </div>
                   ))}
                 </div>
@@ -909,371 +1261,422 @@ export default function Dashboard() {
             </>
           )}
 
-          {/* ═══ CAMPAIGNS TAB ═══ */}
-          {activeTab === 'campaigns' && (
+          {/* Campaigns Section */}
+          {activeSection === 'campaigns' && (
             <>
-              <h2 style={s.contentTitle}>Campaign Performance</h2>
+              <h2 style={s.sectionTitle}>Campaign Performance</h2>
               {filteredCampaigns.length === 0 ? (
-                <p style={s.empty}>No campaigns yet</p>
+                <div style={s.emptyState}>No campaign data found</div>
               ) : (
-                <div style={s.tableWrap}>
-                  <table style={s.table} className="dash-table">
-                    <thead>
-                      <tr>
-                        <th style={s.th}>#</th>
-                        <th style={s.th}>Campaign</th>
-                        <th style={s.th}>Platform</th>
-                        <th style={s.th}>Leads</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredCampaigns.map((c, i) => (
-                        <tr key={c.campaign}>
-                          <td style={s.td}>{i + 1}</td>
-                          <td style={s.tdBold}>{c.campaign}</td>
-                          <td style={s.td}>
-                            <span
-                              style={{
-                                ...s.badge,
-                                background: PLATFORM_COLORS[c.platform] || '#64748b',
-                              }}
-                            >
-                              {c.platform}
-                            </span>
-                          </td>
-                          <td style={s.tdNum}>{c.leads.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ═══ ADS TAB ═══ */}
-          {activeTab === 'ads' && (
-            <>
-              <h2 style={s.contentTitle}>Ad Performance</h2>
-              {filteredAds.length === 0 ? (
-                <p style={s.empty}>No ads yet</p>
-              ) : (
-                <div style={s.tableWrap}>
-                  <table style={s.table} className="dash-table">
-                    <thead>
-                      <tr>
-                        <th style={s.th}>#</th>
-                        <th style={s.th}>Ad</th>
-                        <th style={s.th}>Campaign</th>
-                        <th style={s.th}>Platform</th>
-                        <th style={s.th}>Leads</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredAds.map((a, i) => (
-                        <tr key={a.ad}>
-                          <td style={s.td}>{i + 1}</td>
-                          <td style={s.tdBold}>{a.ad}</td>
-                          <td style={s.td}>{a.campaign}</td>
-                          <td style={s.td}>
-                            <span
-                              style={{
-                                ...s.badge,
-                                background: PLATFORM_COLORS[a.platform] || '#64748b',
-                              }}
-                            >
-                              {a.platform}
-                            </span>
-                          </td>
-                          <td style={s.tdNum}>{a.leads.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ═══ LANDING PAGES TAB ═══ */}
-          {activeTab === 'landingPages' && (
-            <>
-              <h2 style={s.contentTitle}>Landing Page Performance</h2>
-              {landingPages.length === 0 ? (
-                <p style={s.empty}>No pages yet</p>
-              ) : (
-                <div style={s.tableWrap}>
-                  <table style={s.table} className="dash-table">
-                    <thead>
-                      <tr>
-                        <th style={s.th}>#</th>
-                        <th style={s.th}>Page</th>
-                        <th style={s.th}>Leads</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {landingPages.map((lp, i) => (
-                        <tr key={lp.path}>
-                          <td style={s.td}>{i + 1}</td>
-                          <td style={s.tdCode}>
-                            <code style={s.code}>{lp.path}</code>
-                          </td>
-                          <td style={s.tdNum}>{lp.leads.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* ═══ LEADS TAB ═══ */}
-          {activeTab === 'leads' && (
-            <>
-              <div style={s.leadsHeader}>
-                <h2 style={s.contentTitle}>Lead Details ({filteredLeads.length})</h2>
-                {totalPages > 1 && (
-                  <div style={s.pagination}>
-                    <button
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      style={currentPage === 1 ? s.pageButtonDisabled : s.pageButton}
-                    >
-                      ← Prev
-                    </button>
-                    <span style={s.pageInfo}>
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                      style={currentPage === totalPages ? s.pageButtonDisabled : s.pageButton}
-                    >
-                      Next →
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {loading ? (
-                <p style={s.empty}>Connecting...</p>
-              ) : filteredLeads.length === 0 ? (
-                <p style={s.empty}>No leads yet</p>
-              ) : (
-                <>
-                  <div style={s.tableWrap}>
+                <div style={s.tableCard}>
+                  <div style={s.tableWrapper}>
                     <table style={s.table} className="dash-table">
                       <thead>
                         <tr>
-                          <th style={s.th}>#</th>
-                          <th style={s.th}>Name</th>
-                          <th style={s.th}>Phone</th>
-                          <th style={s.th}>Platform</th>
                           <th style={s.th}>Campaign</th>
-                          <th style={s.th}>Medium</th>
-                          <th style={s.th}>Ad Content</th>
-                          <th style={s.th}>Page</th>
-                          <th style={s.th}>Time</th>
-                          <th style={s.th}>Details</th>
+                          <th style={s.th}>Platform</th>
+                          <th style={s.th}>Interactions</th>
+                          <th style={s.th}>Share</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {paginatedLeads.map((row) => (
-                          <tr key={row.index}>
-                            <td style={s.td}>{row.index}</td>
-                            <td style={s.tdBold}>{row.fullName}</td>
-                            <td style={s.td}>{row.phone}</td>
+                        {filteredCampaigns.map((c) => {
+                          const share = (c.leads / filteredData.length) * 100;
+                          return (
+                            <tr key={c.campaign}>
+                              <td style={s.tdBold}>{c.campaign}</td>
+                              <td style={s.td}>
+                                <span
+                                  style={{
+                                    ...s.platformBadge,
+                                    background: PLATFORM_COLORS[c.platform] || '#9aa1b2',
+                                  }}
+                                >
+                                  {c.platform}
+                                </span>
+                              </td>
+                              <td style={s.tdNum}>{c.leads}</td>
+                              <td style={s.td}>
+                                <div style={s.progressWrapper}>
+                                  <div
+                                    style={{
+                                      ...s.progressBar,
+                                      width: `${share}%`,
+                                      background: PLATFORM_COLORS[c.platform] || '#9aa1b2',
+                                    }}
+                                  />
+                                </div>
+                                <span style={s.progressText}>{share.toFixed(1)}%</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Ads Section */}
+          {activeSection === 'ads' && (
+            <>
+              <h2 style={s.sectionTitle}>Ad Performance</h2>
+              {filteredAds.length === 0 ? (
+                <div style={s.emptyState}>No ad data found</div>
+              ) : (
+                <div style={s.tableCard}>
+                  <div style={s.tableWrapper}>
+                    <table style={s.table} className="dash-table">
+                      <thead>
+                        <tr>
+                          <th style={s.th}>Ad Content</th>
+                          <th style={s.th}>Campaign</th>
+                          <th style={s.th}>Platform</th>
+                          <th style={s.th}>Interactions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredAds.map((a) => (
+                          <tr key={a.ad}>
+                            <td style={s.tdBold}>{a.ad}</td>
+                            <td style={s.td}>{a.campaign}</td>
                             <td style={s.td}>
                               <span
                                 style={{
-                                  ...s.badge,
-                                  background: PLATFORM_COLORS[row.platform] || '#64748b',
+                                  ...s.platformBadge,
+                                  background: PLATFORM_COLORS[a.platform] || '#9aa1b2',
                                 }}
                               >
-                                {row.platform}
+                                {a.platform}
                               </span>
                             </td>
-                            <td style={s.td}>{row.utmCampaign || row.campaign || '—'}</td>
-                            <td style={s.td}>{row.utmMedium || '—'}</td>
-                            <td style={s.td}>{row.utmContent || '—'}</td>
-                            <td style={s.tdCode}>
-                              <code style={s.code}>{row.landingPage || '/'}</code>
-                            </td>
-                            <td style={s.tdMuted}>{row.timestamp}</td>
-                            <td style={s.td}>
-                              <button
-                                type="button"
-                                onClick={() => setSelectedLead(row)}
-                                style={s.detailsButton}
-                              >
-                                View
-                              </button>
-                            </td>
+                            <td style={s.tdNum}>{a.leads}</td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Pages Section */}
+          {activeSection === 'pages' && (
+            <>
+              <h2 style={s.sectionTitle}>Landing Page Performance</h2>
+              {landingPages.length === 0 ? (
+                <div style={s.emptyState}>No landing page data found</div>
+              ) : (
+                <div style={s.tableCard}>
+                  <div style={s.tableWrapper}>
+                    <table style={s.table} className="dash-table">
+                      <thead>
+                        <tr>
+                          <th style={s.th}>Page Path</th>
+                          <th style={s.th}>Interactions</th>
+                          <th style={s.th}>Share</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {landingPages.map((lp) => {
+                          const share = (lp.leads / filteredData.length) * 100;
+                          return (
+                            <tr key={lp.path}>
+                              <td style={s.tdCode}>
+                                <code style={s.code}>{lp.path}</code>
+                              </td>
+                              <td style={s.tdNum}>{lp.leads}</td>
+                              <td style={s.td}>
+                                <div style={s.progressWrapper}>
+                                  <div style={{ ...s.progressBar, width: `${share}%`, background: '#0f766e' }} />
+                                </div>
+                                <span style={s.progressText}>{share.toFixed(1)}%</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Leads Section */}
+          {activeSection === 'leads' && (
+            <>
+              <div style={s.leadsHeader}>
+                <div>
+                  <h2 style={s.sectionTitle}>Lead Details</h2>
+
+                  <p style={s.sectionSubtitle}>Newest leads are displayed first</p>
+                </div>
+
+                <LeadsPagination
+                  currentPage={safeCurrentPage}
+                  totalPages={totalPages}
+                  firstVisibleLead={firstVisibleLead}
+                  lastVisibleLead={lastVisibleLead}
+                  totalLeads={filteredLeads.length}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+
+              {loading ? (
+                <div style={s.emptyState}>Connecting...</div>
+              ) : filteredLeads.length === 0 ? (
+                <div style={s.emptyState}>No leads found</div>
+              ) : (
+                <>
+                  <div style={s.tableCard}>
+                    <div style={s.tableWrapper}>
+                      <table style={s.table} className="dash-table">
+                        <thead>
+                          <tr>
+                            <th style={s.th}>Lead</th>
+                            <th style={s.th}>Phone</th>
+                            <th style={s.th}>Platform</th>
+                            <th style={s.th}>Campaign</th>
+                            <th style={s.th}>Medium</th>
+                            <th style={s.th}>Landing Page</th>
+                            <th style={s.th}>Time</th>
+                            <th style={s.th}>Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {paginatedLeads.map((row) => (
+                            <tr
+                              key={
+                                row.touchpointId ||
+                                `${row.leadId}-${row.createdAtRaw}` ||
+                                `${row.phone}-${row.index}`
+                              }
+                            >
+                              <td style={s.td}>
+                                <div style={s.leadCell}>
+                                  <div style={s.avatar}>
+                                    {row.fullName
+                                      .split(' ')
+                                      .map((n) => n[0])
+                                      .join('')
+                                      .substring(0, 2)
+                                      .toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div style={s.leadName}>{row.fullName}</div>
+                                    {row.sourceType && <div style={s.leadMeta}>{row.sourceType}</div>}
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={s.td}>{row.phone}</td>
+                              <td style={s.td}>
+                                <span
+                                  style={{
+                                    ...s.platformBadge,
+                                    background: PLATFORM_COLORS[row.platform] || '#9aa1b2',
+                                  }}
+                                >
+                                  {row.platform}
+                                </span>
+                              </td>
+                              <td style={s.td}>{row.utmCampaign || row.campaign || '—'}</td>
+                              <td style={s.td}>{row.utmMedium || '—'}</td>
+                              <td style={s.tdCode}>
+                                <code style={s.code}>{row.landingPage || '/'}</code>
+                              </td>
+                              <td style={s.tdMuted}>{row.timestamp}</td>
+                              <td style={s.td}>
+                                <button onClick={() => setSelectedLead(row)} style={s.btnView}>
+                                  View
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div className="desktop-pagination">
+                    <LeadsPagination
+                      currentPage={safeCurrentPage}
+                      totalPages={totalPages}
+                      firstVisibleLead={firstVisibleLead}
+                      lastVisibleLead={lastVisibleLead}
+                      totalLeads={filteredLeads.length}
+                      onPageChange={(page) => {
+                        setCurrentPage(page);
+
+                        window.scrollTo({
+                          top: 0,
+                          behavior: 'smooth',
+                        });
+                      }}
+                    />
+                  </div>
 
                   {/* Mobile cards */}
                   <div className="dash-cards">
                     {paginatedLeads.map((row) => (
-                      <div key={row.index} style={s.mobileCard}>
-                        <div style={s.mobileTop}>
-                          <span style={s.mobileIndex}>#{row.index}</span>
+                      <div
+                        key={
+                          row.touchpointId ||
+                          `${row.leadId}-${row.createdAtRaw}` ||
+                          `${row.phone}-${row.index}`
+                        }
+                        style={s.mobileCard}
+                      >
+                        <div style={s.mobileCardHeader}>
+                          <div style={s.avatar}>
+                            {row.fullName
+                              .split(' ')
+                              .map((n) => n[0])
+                              .join('')
+                              .substring(0, 2)
+                              .toUpperCase()}
+                          </div>
+                          <div style={s.mobileCardInfo}>
+                            <div style={s.mobileName}>{row.fullName}</div>
+                            <div style={s.mobilePhone}>{row.phone}</div>
+                          </div>
                           <span
                             style={{
-                              ...s.badge,
-                              background: PLATFORM_COLORS[row.platform] || '#64748b',
+                              ...s.platformBadge,
+                              background: PLATFORM_COLORS[row.platform] || '#9aa1b2',
                             }}
                           >
                             {row.platform}
                           </span>
                         </div>
-                        <p style={s.mobileName}>{row.fullName}</p>
-                        <p style={s.mobilePhone}>{row.phone}</p>
-                        {(row.utmCampaign || row.campaign) && (
-                          <p style={s.mobileMeta}>Campaign: {row.utmCampaign || row.campaign}</p>
-                        )}
-                        {row.utmMedium && (
-                          <p style={s.mobileMeta}>Medium: {row.utmMedium}</p>
-                        )}
-                        {row.utmContent && (
-                          <p style={s.mobileMeta}>Ad Content: {row.utmContent}</p>
-                        )}
-                        <p style={s.mobileTime}>{row.timestamp}</p>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedLead(row)}
-                          style={s.mobileDetailsButton}
-                        >
-                          View attribution details
+                        <div style={s.mobileCardBody}>
+                          {(row.utmCampaign || row.campaign) && (
+                            <div style={s.mobileMeta}>
+                              Campaign: <strong>{row.utmCampaign || row.campaign}</strong>
+                            </div>
+                          )}
+                          <div style={s.mobileTime}>{row.timestamp}</div>
+                        </div>
+                        <button onClick={() => setSelectedLead(row)} style={s.mobileViewButton}>
+                          View Details
                         </button>
                       </div>
                     ))}
                   </div>
 
-                  {/* Pagination for mobile */}
-                  {totalPages > 1 && (
-                    <div style={s.paginationMobile} className="dash-cards">
-                      <button
-                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                        disabled={currentPage === 1}
-                        style={currentPage === 1 ? s.pageButtonDisabled : s.pageButton}
-                      >
-                        ← Prev
-                      </button>
-                      <span style={s.pageInfo}>
-                        Page {currentPage} of {totalPages}
-                      </span>
-                      <button
-                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={currentPage === totalPages}
-                        style={currentPage === totalPages ? s.pageButtonDisabled : s.pageButton}
-                      >
-                        Next →
-                      </button>
-                    </div>
-                  )}
+                  <div className="dash-cards">
+                    <LeadsPagination
+                      currentPage={safeCurrentPage}
+                      totalPages={totalPages}
+                      firstVisibleLead={firstVisibleLead}
+                      lastVisibleLead={lastVisibleLead}
+                      totalLeads={filteredLeads.length}
+                      onPageChange={setCurrentPage}
+                    />
+                  </div>
                 </>
               )}
             </>
           )}
         </div>
+      </main>
 
-        {!loading && data.length > 0 && (
-          <div style={s.footer}>
-            Total: <strong>{data.length.toLocaleString()}</strong> submissions
-          </div>
-        )}
-      </div>
-
-      {/* Lead attribution details modal */}
+      {/* Lead Details Drawer */}
       {selectedLead && (
-        <div style={s.modalOverlay} onClick={() => setSelectedLead(null)}>
-          <div style={s.modalCard} onClick={(event) => event.stopPropagation()}>
-            <div style={s.modalHeader}>
+        <div style={s.drawerOverlay} onClick={() => setSelectedLead(null)}>
+          <div style={s.drawer} onClick={(e) => e.stopPropagation()}>
+            <div style={s.drawerHeader}>
               <div>
-                <h2 style={s.modalTitle}>Lead Attribution Details</h2>
-                <p style={s.modalSubtitle}>
+                <h3 style={s.drawerTitle}>Lead Attribution Details</h3>
+                <p style={s.drawerSubtitle}>
                   {selectedLead.fullName} · {selectedLead.phone}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelectedLead(null)}
-                style={s.modalClose}
-                aria-label="Close lead details"
-              >
+              <button onClick={() => setSelectedLead(null)} style={s.drawerClose}>
                 ×
               </button>
             </div>
 
-            <div style={s.detailGrid}>
-              <DetailItem label="Platform" value={selectedLead.platform} />
-              <DetailItem label="UTM Source" value={selectedLead.utmSource} />
-              <DetailItem label="UTM Medium" value={selectedLead.utmMedium} />
-              <DetailItem
-                label="UTM Campaign"
-                value={selectedLead.utmCampaign || selectedLead.campaign}
-              />
-              <DetailItem label="UTM Content / Ad" value={selectedLead.utmContent} />
-              <DetailItem label="UTM Term / Audience" value={selectedLead.utmTerm} />
-              <DetailItem label="UTM ID" value={getUtmId(selectedLead)} copyable />
-              <DetailItem label="GCLID" value={selectedLead.gclid} copyable />
-              <DetailItem label="FBCLID" value={selectedLead.fbclid} copyable />
-              <DetailItem label="Landing Page Path" value={selectedLead.landingPage} />
-              <DetailItem
-                label="Landing Page URL"
-                value={selectedLead.landingPageUrl}
-                wide
-                copyable
-              />
-              <DetailItem label="Referrer" value={selectedLead.referrer} wide copyable />
-              <DetailItem label="Submitted At" value={selectedLead.timestamp} wide />
+            <div style={s.drawerBody}>
+              <div style={s.drawerSection}>
+                <h4 style={s.drawerSectionTitle}>Lead Information</h4>
+                <div style={s.detailsGrid}>
+                  <DetailItem label="Full Name" value={selectedLead.fullName} />
+                  <DetailItem label="Phone" value={selectedLead.phone} />
+                  <DetailItem label="Lead ID" value={selectedLead.leadId} />
+                  <DetailItem label="Touchpoint ID" value={selectedLead.touchpointId} />
+                </div>
+              </div>
+
+              <div style={s.drawerSection}>
+                <h4 style={s.drawerSectionTitle}>Marketing Attribution</h4>
+                <div style={s.detailsGrid}>
+                  <DetailItem label="Platform" value={selectedLead.platform} />
+                  <DetailItem label="UTM Source" value={selectedLead.utmSource} />
+                  <DetailItem label="UTM Medium" value={selectedLead.utmMedium} />
+                  <DetailItem label="UTM Campaign" value={selectedLead.utmCampaign || selectedLead.campaign} />
+                  <DetailItem label="UTM Content" value={selectedLead.utmContent} />
+                  <DetailItem label="UTM Term" value={selectedLead.utmTerm} />
+                  <DetailItem label="UTM ID" value={getUtmId(selectedLead)} copyable />
+                  <DetailItem label="GCLID" value={selectedLead.gclid} copyable />
+                  <DetailItem label="FBCLID" value={selectedLead.fbclid} copyable />
+                </div>
+              </div>
+
+              <div style={s.drawerSection}>
+                <h4 style={s.drawerSectionTitle}>Page Information</h4>
+                <div style={s.detailsGrid}>
+                  <DetailItem label="Landing Page" value={selectedLead.landingPage} wide />
+                  <DetailItem label="Landing Page URL" value={selectedLead.landingPageUrl} wide copyable />
+                  <DetailItem label="Referrer" value={selectedLead.referrer} wide copyable />
+                  <DetailItem label="Form Source" value={selectedLead.formSource} />
+                  <DetailItem label="Source Type" value={selectedLead.sourceType} />
+                </div>
+              </div>
+
+              <div style={s.drawerSection}>
+                <h4 style={s.drawerSectionTitle}>Device Information</h4>
+                <div style={s.detailsGrid}>
+                  <DetailItem label="Browser" value={selectedLead.browserName} />
+                  <DetailItem label="OS" value={selectedLead.osName} />
+                  <DetailItem label="Device Type" value={selectedLead.deviceType} />
+                  <DetailItem label="IP Address" value={selectedLead.ipAddress} copyable />
+                  <DetailItem label="Language" value={selectedLead.language} />
+                  <DetailItem label="Timezone" value={selectedLead.timezone} />
+                </div>
+              </div>
+
+              <div style={s.drawerSection}>
+                <h4 style={s.drawerSectionTitle}>Journey</h4>
+                <div style={s.detailsGrid}>
+                  <DetailItem label="First Touch" value={selectedLead.firstTouchAt} />
+                  <DetailItem label="Last Touch" value={selectedLead.lastTouchAt} />
+                  <DetailItem label="Total Touchpoints" value={selectedLead.totalTouchpoints?.toString()} />
+                  <DetailItem label="Submitted At" value={selectedLead.timestamp} />
+                </div>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Chat FAB */}
-      <button onClick={() => setChatOpen(!chatOpen)} style={s.chatFab}>
-        {chatOpen ? '✕' : '💬'}
-      </button>
-
       {/* Chat Panel */}
       {chatOpen && (
         <div style={s.chatPanel}>
           <div style={s.chatHeader}>
-            <span>🤖 Marketing Assistant</span>
+            <span style={s.chatTitle}>Marketing Assistant</span>
+            <button onClick={() => setChatOpen(false)} style={s.chatHeaderClose}>
+              ×
+            </button>
           </div>
 
           <div style={s.chatBody}>
             {chatMessages.map((msg, i) => (
               <div key={i} style={msg.role === 'user' ? s.msgUser : s.msgBot}>
-                <div style={msg.role === 'user' ? s.bubbleUser : s.bubbleBot}>
-                  {msg.text.split('\n').map((line, j) => (
-                    <span key={j}>
-                      {line
-                        .replace(/\*\*(.*?)\*\*/g, '«$1»')
-                        .split('«')
-                        .map((part, k) => {
-                          if (part.includes('»')) {
-                            const [bold, rest] = part.split('»');
-                            return (
-                              <span key={k}>
-                                <strong>{bold}</strong>
-                                {rest}
-                              </span>
-                            );
-                          }
-                          return <span key={k}>{part}</span>;
-                        })}
-                      <br />
-                    </span>
-                  ))}
-                </div>
+                <div style={msg.role === 'user' ? s.bubbleUser : s.bubbleBot}>{msg.text}</div>
               </div>
             ))}
             {chatLoading && (
@@ -1285,45 +1688,106 @@ export default function Dashboard() {
           </div>
 
           <div style={s.chatQuick}>
-            {[
-              'Which platform has the most leads?',
-              'Top campaign?',
-              'Compare Google and Meta',
-            ].map((q) => (
+            {['Which platform has the most leads?', 'Top campaign?', 'Compare Google and Meta'].map((q) => (
               <button key={q} style={s.quickBtn} onClick={() => setChatInput(q)}>
                 {q}
               </button>
             ))}
           </div>
 
-          <div style={s.chatInput}>
+          <div style={s.chatInputArea}>
             <input
-              style={s.input}
+              style={s.chatInput}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && sendChat()}
               placeholder="Ask about your data..."
               disabled={chatLoading}
             />
-            <button
-              onClick={sendChat}
-              disabled={chatLoading || !chatInput.trim()}
-              style={s.btnSend}
-            >
+            <button onClick={sendChat} disabled={chatLoading || !chatInput.trim()} style={s.btnSend}>
               Send
             </button>
           </div>
         </div>
       )}
 
+      {/* Chat FAB */}
+      <button onClick={() => setChatOpen(!chatOpen)} style={s.chatFab}>
+        <Icon name={chatOpen ? 'close' : 'chat'} size={21} />
+      </button>
+
       <style>{`
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Inter, Arial, sans-serif; }
         .dash-table { display: table; }
         .dash-cards { display: none; }
         
+        button, input, select { font: inherit; }
+        button:focus-visible, input:focus-visible, select:focus-visible {
+          outline: 2px solid #0f766e;
+          outline-offset: 2px;
+        }
+        .dashboard-sidebar button:hover {
+          filter: brightness(0.98);
+        }
+        .dash-table tbody tr:hover {
+          background: #f8fafc;
+        }
+
+        @media (max-width: 1024px) {
+          .dashboard-sidebar {
+            width: 84px !important;
+            padding: 22px 14px !important;
+          }
+          .dashboard-sidebar > div:first-child > div,
+          .dashboard-sidebar nav button > span:last-child,
+          .dashboard-sidebar > button:nth-of-type(2) > span,
+          .dashboard-sidebar > div:last-child button > span:last-child {
+            display: none !important;
+          }
+          .dashboard-sidebar nav button,
+          .dashboard-sidebar > div:last-child button {
+            justify-content: center !important;
+            padding: 12px !important;
+          }
+        }
+
         @media (max-width: 768px) {
+          .dashboard-shell { display: block !important; }
+          .dashboard-sidebar {
+            position: fixed !important;
+            left: 0;
+            bottom: 0;
+            top: auto !important;
+            width: 100% !important;
+            height: 68px !important;
+            padding: 8px 12px !important;
+            border-right: none !important;
+            border-top: 1px solid #e6eaf0;
+            flex-direction: row !important;
+            align-items: center;
+            overflow-x: auto;
+          }
+          .dashboard-sidebar > div:first-child,
+          .dashboard-sidebar > button,
+          .dashboard-sidebar > div:last-child {
+            display: none !important;
+          }
+          .dashboard-sidebar nav {
+            flex-direction: row !important;
+            justify-content: space-between;
+            width: 100%;
+            gap: 4px !important;
+          }
+          .dashboard-sidebar nav button {
+            min-width: 44px;
+          }
+          .dashboard-main {
+            padding-bottom: 76px;
+          }
           .dash-table { display: none !important; }
-          .dash-cards { display: flex; flex-direction: column; gap: 12px; }
+          .dash-cards { display: flex !important; flex-direction: column; gap: 12px; }
+          .desktop-pagination { display: none !important; }
         }
       `}</style>
     </div>
@@ -1342,23 +1806,22 @@ function DetailItem({
   copyable?: boolean;
 }) {
   const displayValue = value?.trim() || 'Not available';
-
   const copyValue = async () => {
     if (!value?.trim()) return;
     try {
       await navigator.clipboard.writeText(value);
     } catch (error) {
-      console.error('Unable to copy attribution value:', error);
+      console.error('Copy failed:', error);
     }
   };
 
   return (
     <div style={{ ...s.detailItem, ...(wide ? s.detailItemWide : {}) }}>
-      <span style={s.detailLabel}>{label}</span>
+      <div style={s.detailLabel}>{label}</div>
       <div style={s.detailValueRow}>
-        <span style={value?.trim() ? s.detailValue : s.detailValueEmpty}>{displayValue}</span>
+        <div style={value?.trim() ? s.detailValue : s.detailValueEmpty}>{displayValue}</div>
         {copyable && value?.trim() && (
-          <button type="button" onClick={copyValue} style={s.copyButton}>
+          <button onClick={copyValue} style={s.copyButton}>
             Copy
           </button>
         )}
@@ -1368,76 +1831,186 @@ function DetailItem({
 }
 
 /* ═══════════════════════════════════════
-   STYLES
+   STYLES - H-CARE INSPIRED
    ═══════════════════════════════════════ */
 const s: Record<string, React.CSSProperties> = {
-  page: {
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    background: '#f8faf9',
+  shell: {
+    display: 'flex',
     minHeight: '100vh',
-    padding: '24px 16px',
-  },
-  container: {
-    maxWidth: '1280px',
-    margin: '0 auto',
+    background: '#f5f7fa',
+    fontFamily: 'Inter, Arial, sans-serif',
   },
 
-  // Header
-  header: {
+  // Sidebar
+  sidebar: {
+    background: '#ffffff',
+    borderRight: '1px solid #e6eaf0',
     display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: '16px',
-    marginBottom: '24px',
+    flexDirection: 'column',
+    position: 'sticky',
+    top: 0,
+    height: '100vh',
+    flexShrink: 0,
+    transition: 'width 220ms ease, padding 220ms ease',
+    zIndex: 120,
   },
-  brand: {
+  sidebarHeader: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
+    marginBottom: '24px',
   },
-  brandLogo: {
-    width: '48px',
-    height: '48px',
-    borderRadius: '12px',
-    background: '#10b981',
-    color: '#fff',
+  logoImage: {
+    width: '44px',
+    height: '44px',
+    objectFit: 'contain',
+    borderRadius: '10px',
+    flexShrink: 0,
+  },
+  brandCaption: {
+    marginTop: '3px',
+    fontSize: '11px',
+    color: '#9aa1b2',
+    whiteSpace: 'nowrap',
+  },
+  collapseButton: {
+    width: '34px',
+    height: '34px',
+    borderRadius: '8px',
+    border: '1px solid #e6eaf0',
+    background: '#ffffff',
+    color: '#687086',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '20px',
-    fontWeight: 700,
+    cursor: 'pointer',
+    marginBottom: '14px',
   },
-  brandTitle: {
-    margin: 0,
-    fontSize: '24px',
-    fontWeight: 700,
-    color: '#0f172a',
+  brandInfo: {
+    flex: 1,
   },
-  brandSub: {
-    margin: '2px 0 0',
+  brandName: {
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#172033',
+  },
+  btnPrimary: {
+    width: '100%',
+    background: '#0f766e',
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: '8px',
     fontSize: '14px',
-    color: '#64748b',
+    fontWeight: 600,
+    cursor: 'pointer',
+    marginBottom: '24px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '9px',
+    transition: 'background 160ms ease',
   },
-  headerActions: {
+  nav: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    flex: 1,
+  },
+  navItem: {
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
-    flexWrap: 'wrap',
+    padding: '12px 14px',
+    background: 'transparent',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontWeight: 500,
+    color: '#687086',
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'all 0.2s ease',
+  },
+  navItemActive: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '12px 14px',
+    background: '#e7f5f3',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#0f766e',
+    cursor: 'pointer',
+    textAlign: 'left',
+  },
+  navIcon: {
+    fontSize: '18px',
+  },
+  sidebarFooter: {
+    marginTop: 'auto',
+    borderTop: '1px solid #e6eaf0',
+    paddingTop: '16px',
+  },
+
+  // Top Header
+  mainArea: {
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: '100vh',
+    minWidth: 0,
+    flex: 1,
+  },
+  topHeader: {
+    height: '88px',
+    background: '#ffffff',
+    borderBottom: '1px solid #e6eaf0',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '0 32px',
+    position: 'sticky',
+    top: 0,
+    zIndex: 100,
+  },
+  searchBox: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    flex: 1,
+    maxWidth: '500px',
+  },
+  searchIcon: {
+    fontSize: '18px',
+  },
+  searchInput: {
+    flex: 1,
+    padding: '10px 14px',
+    border: '1px solid #e6eaf0',
+    borderRadius: '8px',
+    fontSize: '14px',
+    color: '#172033',
+    background: '#f8fafc',
+    outline: 'none',
+  },
+  headerRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '20px',
   },
   lastUpdate: {
     fontSize: '13px',
-    color: '#64748b',
+    color: '#687086',
   },
   statusLive: {
     display: 'flex',
     alignItems: 'center',
     gap: '6px',
     padding: '6px 12px',
-    borderRadius: '20px',
-    background: '#d1fae5',
-    color: '#065f46',
-    fontSize: '13px',
+    borderRadius: '999px',
+    background: '#e7fbf5',
+    color: '#09c99b',
+    fontSize: '12px',
     fontWeight: 600,
   },
   statusOff: {
@@ -1445,10 +2018,10 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     gap: '6px',
     padding: '6px 12px',
-    borderRadius: '20px',
-    background: '#fef3c7',
-    color: '#92400e',
-    fontSize: '13px',
+    borderRadius: '999px',
+    background: '#fff0ea',
+    color: '#ff8153',
+    fontSize: '12px',
     fontWeight: 600,
   },
   statusDot: {
@@ -1457,234 +2030,232 @@ const s: Record<string, React.CSSProperties> = {
     borderRadius: '50%',
     background: 'currentColor',
   },
-  btnExport: {
-    background: '#10b981',
-    color: '#fff',
-    border: 'none',
-    padding: '8px 16px',
-    borderRadius: '8px',
-    fontSize: '14px',
-    fontWeight: 600,
-    cursor: 'pointer',
+  profileCircle: {
+    width: '36px',
+    height: '36px',
+    borderRadius: '50%',
+    background: '#e7f5f3',
+    color: '#0f766e',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '13px',
+    fontWeight: 700,
   },
 
-  // New lead banner
-  newLeadBanner: {
-    background: '#fef3c7',
-    color: '#92400e',
-    padding: '12px 16px',
-    borderRadius: '8px',
-    marginBottom: '20px',
-    fontSize: '14px',
-    fontWeight: 600,
-    textAlign: 'center',
+  // Content Area
+  contentArea: {
+    padding: '30px 32px',
+    flex: 1,
   },
-
-  // Filters
-  filters: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: '16px',
+  pageHeading: {
     marginBottom: '24px',
-    padding: '20px',
-    background: '#fff',
-    borderRadius: '12px',
-    border: '1px solid #e2e8f0',
   },
-  filterItem: {
+  pageTitle: {
+    fontSize: '24px',
+    fontWeight: 700,
+    color: '#172033',
+    marginBottom: '4px',
+  },
+  pageSubtitle: {
+    fontSize: '14px',
+    color: '#687086',
+  },
+  notification: {
+    padding: '12px 20px',
+    background: '#fff0ea',
+    color: '#ff8153',
+    borderRadius: '10px',
+    fontSize: '14px',
+    fontWeight: 500,
+    marginBottom: '24px',
+  },
+
+  // Filter Card
+  filterCard: {
+    background: '#ffffff',
+    border: '1px solid #e6eaf0',
+    borderRadius: '12px',
+    padding: '20px',
+    marginBottom: '24px',
+    boxShadow: '0 4px 18px rgba(31, 38, 67, 0.04)',
+  },
+  filterGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gap: '16px',
+  },
+  filterGroup: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '6px',
+    gap: '8px',
   },
   filterLabel: {
-    fontSize: '12px',
+    fontSize: '11px',
     fontWeight: 600,
-    color: '#475569',
+    color: '#9aa1b2',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
   },
   filterSelect: {
-    padding: '8px 12px',
-    borderRadius: '6px',
-    border: '1px solid #cbd5e1',
-    fontSize: '14px',
-    color: '#0f172a',
-    background: '#fff',
-    cursor: 'pointer',
-    outline: 'none',
-  },
-
-  // Tabs
-  tabs: {
-    display: 'flex',
-    gap: '4px',
-    marginBottom: '0',
-    overflowX: 'auto',
-    background: '#fff',
-    padding: '4px',
-    borderRadius: '8px 8px 0 0',
-    border: '1px solid #e2e8f0',
-    borderBottom: 'none',
-  },
-  tab: {
-    padding: '10px 20px',
-    border: 'none',
-    background: 'transparent',
-    color: '#64748b',
-    fontSize: '14px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    borderRadius: '6px',
-    whiteSpace: 'nowrap',
-  },
-  tabActive: {
-    padding: '10px 20px',
-    border: 'none',
-    background: '#f1f5f9',
-    color: '#10b981',
-    fontSize: '14px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    borderRadius: '6px',
-    whiteSpace: 'nowrap',
-  },
-
-  // Content
-  content: {
-    background: '#fff',
-    padding: '24px',
-    borderRadius: '0 0 12px 12px',
-    border: '1px solid #e2e8f0',
-    minHeight: '400px',
-  },
-  contentTitle: {
-    margin: '0 0 20px',
-    fontSize: '20px',
-    fontWeight: 700,
-    color: '#0f172a',
-  },
-  empty: {
-    color: '#94a3b8',
-    fontSize: '14px',
-    textAlign: 'center',
-    padding: '60px 20px',
-  },
-
-  /* ── Chart Card Styles ── */
-  chartCard: {
-    background: '#ffffff',
+    padding: '10px 12px',
+    border: '1px solid #e6eaf0',
     borderRadius: '8px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '16px',
+    fontSize: '14px',
+    color: '#172033',
+    background: '#ffffff',
+    outline: 'none',
+    cursor: 'pointer',
   },
-  chartHeaderRow: {
+
+  // Metric Cards
+  metricsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+    gap: '20px',
+    marginBottom: '24px',
+  },
+  metricCard: {
+    background: '#ffffff',
+    border: '1px solid #e6eaf0',
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 4px 18px rgba(31, 38, 67, 0.04)',
+  },
+  metricHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: '16px',
-    marginBottom: '4px',
+    marginBottom: '16px',
   },
-  chartMainTitle: {
-    margin: '0 0 4px',
-    fontSize: '20px',
-    fontWeight: 700,
-    color: '#0f172a',
-  },
-  chartSubTitle: {
-    margin: 0,
-    fontSize: '13px',
-    color: '#64748b',
-  },
-  filterChipsContainer: {
+  metricIcon: {
+    width: '44px',
+    height: '44px',
+    borderRadius: '10px',
     display: 'flex',
     alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: '8px',
+    justifyContent: 'center',
+    fontSize: '20px',
   },
-  filterChipsLabel: {
-    fontSize: '11px',
+  metricMenu: {
+    width: '24px',
+    height: '24px',
+    background: 'transparent',
+    border: 'none',
+    color: '#9aa1b2',
+    fontSize: '16px',
+    cursor: 'pointer',
+  },
+  metricValue: {
+    fontSize: '28px',
     fontWeight: 700,
-    color: '#64748b',
-    letterSpacing: '0.5px',
-    marginRight: '2px',
+    color: '#172033',
+    marginBottom: '6px',
   },
-  filterChip: {
-    display: 'inline-flex',
+  metricLabel: {
+    fontSize: '13px',
+    color: '#687086',
+  },
+
+  // Analytics Grid
+  analyticsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 2fr) minmax(300px, 0.75fr)',
+    gap: '24px',
+    marginBottom: '24px',
+  },
+
+  // Chart Card
+  chartCard: {
+    background: '#ffffff',
+    border: '1px solid #e6eaf0',
+    borderRadius: '12px',
+    padding: '24px',
+    boxShadow: '0 4px 18px rgba(31, 38, 67, 0.04)',
+  },
+  chartCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '20px',
+    flexWrap: 'wrap',
+    gap: '16px',
+  },
+  cardTitle: {
+    fontSize: '18px',
+    fontWeight: 700,
+    color: '#172033',
+    marginBottom: '4px',
+  },
+  cardSubtitle: {
+    fontSize: '13px',
+    color: '#687086',
+  },
+  chartFilters: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+  },
+  chartFilterBtn: {
+    display: 'flex',
     alignItems: 'center',
     gap: '6px',
     padding: '6px 12px',
-    borderRadius: '20px',
+    background: 'transparent',
+    border: '1px solid #e6eaf0',
+    borderRadius: '999px',
     fontSize: '12px',
-    fontWeight: 600,
+    fontWeight: 500,
+    color: '#687086',
     cursor: 'pointer',
-    transition: 'all 0.2s ease',
   },
-  filterChipSelected: {
-    background: '#ffffff',
-    border: '1px solid #cbd5e1',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-  },
-  filterChipUnselected: {
-    background: '#f8fafc',
-    border: '1px solid #e2e8f0',
-  },
-  chipIndicator: {
+  chartFilterDot: {
     width: '8px',
     height: '8px',
     borderRadius: '50%',
-    display: 'inline-block',
   },
-  svgChartWrapper: {
+  chartWrapper: {
     width: '100%',
     overflowX: 'auto',
   },
-  chartLegend: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: '20px',
-    paddingTop: '10px',
-    borderTop: '1px solid #f1f5f9',
-  },
-  legendItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    cursor: 'pointer',
-    userSelect: 'none',
-  },
-  legendDot: {
-    width: '10px',
-    height: '10px',
-    borderRadius: '50%',
-    display: 'inline-block',
-  },
-  legendText: {
-    fontSize: '13px',
-    fontWeight: 500,
-    color: '#475569',
-  },
 
-  // Platforms
-  platformsGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: '16px',
+  // Donut Card
+  donutCard: {
+    background: '#ffffff',
+    border: '1px solid #e6eaf0',
+    borderRadius: '12px',
+    padding: '24px',
+    boxShadow: '0 4px 18px rgba(31, 38, 67, 0.04)',
   },
-  platformCard: {
-    background: '#f8fafc',
-    padding: '20px',
-    borderRadius: '8px',
-    border: '1px solid #e2e8f0',
+  donutCenter: {
+    textAlign: 'center',
+    margin: '24px 0',
   },
-  platformTop: {
+  donutValue: {
+    fontSize: '32px',
+    fontWeight: 700,
+    color: '#172033',
+  },
+  donutLabel: {
+    fontSize: '13px',
+    color: '#687086',
+    marginTop: '4px',
+  },
+  platformList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  platformRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '10px 0',
+  },
+  platformLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px',
-    marginBottom: '12px',
+    gap: '10px',
   },
   platformDot: {
     width: '10px',
@@ -1693,87 +2264,35 @@ const s: Record<string, React.CSSProperties> = {
   },
   platformName: {
     fontSize: '14px',
-    fontWeight: 600,
-    color: '#0f172a',
+    fontWeight: 500,
+    color: '#172033',
   },
-  platformValue: {
-    fontSize: '28px',
+  platformRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  platformCount: {
+    fontSize: '15px',
     fontWeight: 700,
-    color: '#0f172a',
-    marginBottom: '12px',
+    color: '#172033',
   },
-  platformBar: {
-    height: '6px',
-    background: '#e2e8f0',
-    borderRadius: '3px',
-    overflow: 'hidden',
-    marginBottom: '8px',
-  },
-  platformBarFill: {
-    height: '100%',
-    borderRadius: '3px',
-    transition: 'width 0.5s ease',
-  },
-  platformPct: {
+  platformPercent: {
     fontSize: '13px',
-    fontWeight: 600,
-    color: '#64748b',
+    color: '#687086',
   },
 
-  // Leads header with pagination
-  leadsHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '20px',
-    flexWrap: 'wrap',
-    gap: '12px',
+  // Table Card
+  tableCard: {
+    background: '#ffffff',
+    border: '1px solid #e6eaf0',
+    borderRadius: '12px',
+    padding: '24px',
+    boxShadow: '0 4px 18px rgba(31, 38, 67, 0.04)',
+    marginBottom: '24px',
   },
-
-  // Pagination
-  pagination: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-  },
-  paginationMobile: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '12px',
-    marginTop: '16px',
-  },
-  pageButton: {
-    background: '#10b981',
-    color: '#fff',
-    border: 'none',
-    padding: '6px 14px',
-    borderRadius: '6px',
-    fontSize: '13px',
-    fontWeight: 600,
-    cursor: 'pointer',
-  },
-  pageButtonDisabled: {
-    background: '#e2e8f0',
-    color: '#94a3b8',
-    border: 'none',
-    padding: '6px 14px',
-    borderRadius: '6px',
-    fontSize: '13px',
-    fontWeight: 600,
-    cursor: 'not-allowed',
-  },
-  pageInfo: {
-    fontSize: '14px',
-    color: '#64748b',
-    fontWeight: 600,
-  },
-
-  // Table
-  tableWrap: {
+  tableWrapper: {
     overflowX: 'auto',
-    borderRadius: '8px',
-    border: '1px solid #e2e8f0',
   },
   table: {
     width: '100%',
@@ -1784,239 +2303,456 @@ const s: Record<string, React.CSSProperties> = {
     textAlign: 'left',
     fontSize: '12px',
     fontWeight: 600,
-    color: '#475569',
+    color: '#9aa1b2',
     background: '#f8fafc',
-    borderBottom: '1px solid #e2e8f0',
+    borderBottom: '1px solid #e6eaf0',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
   },
   td: {
-    padding: '12px 16px',
+    padding: '14px 16px',
     fontSize: '14px',
-    color: '#334155',
-    borderBottom: '1px solid #f1f5f9',
+    color: '#172033',
+    borderBottom: '1px solid #f8fafc',
   },
   tdBold: {
-    padding: '12px 16px',
+    padding: '14px 16px',
     fontSize: '14px',
-    color: '#0f172a',
+    color: '#172033',
     fontWeight: 600,
-    borderBottom: '1px solid #f1f5f9',
+    borderBottom: '1px solid #f8fafc',
   },
   tdNum: {
-    padding: '12px 16px',
+    padding: '14px 16px',
     fontSize: '15px',
-    color: '#0f172a',
+    color: '#172033',
     fontWeight: 700,
-    borderBottom: '1px solid #f1f5f9',
+    borderBottom: '1px solid #f8fafc',
   },
   tdMuted: {
-    padding: '12px 16px',
+    padding: '14px 16px',
     fontSize: '13px',
-    color: '#94a3b8',
-    borderBottom: '1px solid #f1f5f9',
+    color: '#687086',
+    borderBottom: '1px solid #f8fafc',
   },
   tdCode: {
-    padding: '12px 16px',
-    borderBottom: '1px solid #f1f5f9',
+    padding: '14px 16px',
+    borderBottom: '1px solid #f8fafc',
   },
-  badge: {
+  code: {
+    padding: '4px 8px',
+    background: '#f8fafc',
+    borderRadius: '4px',
+    fontSize: '12px',
+    fontFamily: 'monospace',
+    color: '#0f766e',
+  },
+  leadCell: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  avatar: {
+    width: '36px',
+    height: '36px',
+    borderRadius: '8px',
+    background: '#0f766e',
+    color: '#fff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: '12px',
+    fontWeight: 700,
+    flexShrink: 0,
+  },
+  leadName: {
+    fontSize: '14px',
+    fontWeight: 600,
+    color: '#172033',
+  },
+  leadMeta: {
+    fontSize: '11px',
+    color: '#9aa1b2',
+  },
+  platformBadge: {
     display: 'inline-block',
-    padding: '3px 10px',
-    borderRadius: '12px',
+    padding: '4px 10px',
+    borderRadius: '999px',
     fontSize: '12px',
     fontWeight: 600,
     color: '#fff',
   },
-  code: {
-    background: '#f1f5f9',
-    padding: '3px 8px',
-    borderRadius: '4px',
-    fontSize: '13px',
-    fontFamily: 'monospace',
-    color: '#475569',
-  },
-
-  detailsButton: {
-    border: '1px solid #cbd5e1',
-    background: '#ffffff',
-    color: '#334155',
-    padding: '6px 10px',
+  btnView: {
+    padding: '6px 14px',
+    background: 'transparent',
+    border: '1px solid #e6eaf0',
     borderRadius: '6px',
-    fontSize: '12px',
-    fontWeight: 600,
+    fontSize: '13px',
+    fontWeight: 500,
+    color: '#0f766e',
     cursor: 'pointer',
   },
-  mobileDetailsButton: {
-    marginTop: '12px',
-    width: '100%',
-    border: '1px solid #cbd5e1',
+  progressWrapper: {
+    height: '6px',
     background: '#f8fafc',
-    color: '#334155',
-    padding: '8px 10px',
-    borderRadius: '6px',
-    fontSize: '13px',
+    borderRadius: '3px',
+    overflow: 'hidden',
+    marginBottom: '4px',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: '3px',
+    transition: 'width 0.5s ease',
+  },
+  progressText: {
+    fontSize: '12px',
+    color: '#687086',
     fontWeight: 600,
-    cursor: 'pointer',
   },
 
-  // Attribution details modal
-  modalOverlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(15, 23, 42, 0.55)',
+  // Platform Cards Grid
+  platformCardsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+    gap: '20px',
+  },
+  platformPerformanceCard: {
+    background: '#ffffff',
+    border: '1px solid #e6eaf0',
+    borderRadius: '12px',
+    padding: '20px',
+    boxShadow: '0 4px 18px rgba(31, 38, 67, 0.04)',
+  },
+  platformCardHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    marginBottom: '16px',
+  },
+  platformCardIcon: {
+    width: '40px',
+    height: '40px',
+    borderRadius: '8px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: '20px',
-    zIndex: 2000,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: '820px',
-    maxHeight: '88vh',
-    overflowY: 'auto',
-    background: '#ffffff',
-    borderRadius: '14px',
-    boxShadow: '0 24px 70px rgba(15, 23, 42, 0.28)',
-    border: '1px solid #e2e8f0',
-  },
-  modalHeader: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: '16px',
-    padding: '20px 22px',
-    borderBottom: '1px solid #e2e8f0',
-    position: 'sticky',
-    top: 0,
-    background: '#ffffff',
-    zIndex: 1,
-  },
-  modalTitle: {
-    margin: 0,
-    fontSize: '20px',
+    color: '#fff',
+    fontSize: '18px',
     fontWeight: 700,
-    color: '#0f172a',
+    flexShrink: 0,
   },
-  modalSubtitle: {
-    margin: '4px 0 0',
+  platformCardName: {
+    fontSize: '15px',
+    fontWeight: 700,
+    color: '#172033',
+  },
+  platformCardMeta: {
+    fontSize: '12px',
+    color: '#687086',
+  },
+  platformCardValue: {
+    fontSize: '32px',
+    fontWeight: 700,
+    color: '#172033',
+    marginBottom: '4px',
+  },
+  platformCardLabel: {
     fontSize: '13px',
-    color: '#64748b',
+    color: '#687086',
+    marginBottom: '12px',
   },
-  modalClose: {
-    width: '34px',
-    height: '34px',
-    borderRadius: '8px',
-    border: '1px solid #e2e8f0',
+  platformCardBar: {
+    height: '6px',
     background: '#f8fafc',
-    color: '#475569',
-    fontSize: '24px',
-    lineHeight: 1,
+    borderRadius: '3px',
+    overflow: 'hidden',
+    marginBottom: '8px',
+  },
+  platformCardBarFill: {
+    height: '100%',
+    borderRadius: '3px',
+    transition: 'width 0.5s ease',
+  },
+  platformCardPercent: {
+    fontSize: '13px',
+    fontWeight: 600,
+    color: '#687086',
+  },
+
+  // Section Title
+  sectionTitle: {
+    fontSize: '22px',
+    fontWeight: 700,
+    color: '#172033',
+    marginBottom: '8px',
+  },
+
+  sectionSubtitle: {
+    margin: '5px 0 0',
+    color: '#687086',
+    fontSize: '13px',
+  },
+
+  // Empty State
+  emptyState: {
+    textAlign: 'center',
+    padding: '60px 20px',
+    fontSize: '14px',
+    color: '#9aa1b2',
+  },
+
+  // Leads Header
+  leadsHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: '24px',
+    flexWrap: 'wrap',
+    gap: '16px',
+  },
+
+  // Pagination
+  paginationContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: '14px',
+    width: '100%',
+    padding: '14px 0',
+  },
+
+  paginationSummary: {
+    color: '#687086',
+    fontSize: '13px',
+    fontWeight: 500,
+  },
+
+  pagination: {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '6px',
+  },
+
+  pageButton: {
+    minHeight: '36px',
+    padding: '7px 13px',
+    border: '1px solid #d8dee8',
+    borderRadius: '7px',
+    background: '#ffffff',
+    color: '#344054',
+    fontSize: '13px',
+    fontWeight: 600,
     cursor: 'pointer',
   },
-  detailGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
+
+  pageButtonDisabled: {
+    minHeight: '36px',
+    padding: '7px 13px',
+    border: '1px solid #eaecf0',
+    borderRadius: '7px',
+    background: '#f8fafc',
+    color: '#a0a7b4',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'not-allowed',
+  },
+
+  pageNumber: {
+    width: '36px',
+    height: '36px',
+    border: '1px solid #d8dee8',
+    borderRadius: '7px',
+    background: '#ffffff',
+    color: '#344054',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+
+  pageNumberActive: {
+    width: '36px',
+    height: '36px',
+    border: '1px solid #0f766e',
+    borderRadius: '7px',
+    background: '#0f766e',
+    color: '#ffffff',
+    fontSize: '13px',
+    fontWeight: 700,
+    cursor: 'pointer',
+  },
+
+  paginationDots: {
+    padding: '0 3px',
+    color: '#98a2b3',
+    fontSize: '14px',
+  },
+
+  // Mobile Cards
+  mobileCard: {
+    background: '#ffffff',
+    border: '1px solid #e6eaf0',
+    borderRadius: '12px',
+    padding: '16px',
+  },
+  mobileCardHeader: {
+    display: 'flex',
+    alignItems: 'center',
     gap: '12px',
-    padding: '20px 22px 24px',
+    marginBottom: '12px',
+  },
+  mobileCardInfo: {
+    flex: 1,
+  },
+  mobileName: {
+    fontSize: '15px',
+    fontWeight: 600,
+    color: '#172033',
+  },
+  mobilePhone: {
+    fontSize: '13px',
+    color: '#687086',
+  },
+  mobileCardBody: {
+    marginBottom: '12px',
+  },
+  mobileMeta: {
+    fontSize: '13px',
+    color: '#687086',
+    marginBottom: '6px',
+  },
+  mobileTime: {
+    fontSize: '12px',
+    color: '#9aa1b2',
+  },
+  mobileViewButton: {
+    width: '100%',
+    padding: '10px',
+    background: '#0f766e',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    fontSize: '14px',
+    fontWeight: 600,
+    cursor: 'pointer',
+  },
+
+  // Drawer
+  drawerOverlay: {
+    position: 'fixed',
+    inset: 0,
+    background: 'rgba(32, 36, 58, 0.5)',
+    zIndex: 2000,
+  },
+  drawer: {
+    position: 'fixed',
+    top: 0,
+    right: 0,
+    width: '520px',
+    height: '100vh',
+    background: '#ffffff',
+    boxShadow: '-4px 0 24px rgba(31, 38, 67, 0.12)',
+    display: 'flex',
+    flexDirection: 'column',
+    maxWidth: '100vw',
+  },
+  drawerHeader: {
+    padding: '24px',
+    borderBottom: '1px solid #e6eaf0',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  drawerTitle: {
+    fontSize: '18px',
+    fontWeight: 700,
+    color: '#172033',
+  },
+  drawerSubtitle: {
+    fontSize: '13px',
+    color: '#687086',
+    marginTop: '4px',
+  },
+  drawerClose: {
+    width: '32px',
+    height: '32px',
+    background: '#f8fafc',
+    border: '1px solid #e6eaf0',
+    borderRadius: '6px',
+    color: '#687086',
+    fontSize: '20px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    lineHeight: 1,
+  },
+  drawerBody: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '24px',
+  },
+  drawerSection: {
+    marginBottom: '28px',
+  },
+  drawerSectionTitle: {
+    fontSize: '14px',
+    fontWeight: 700,
+    color: '#172033',
+    marginBottom: '16px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  detailsGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '12px',
   },
   detailItem: {
-    background: '#f8fafc',
-    border: '1px solid #e2e8f0',
-    borderRadius: '9px',
     padding: '12px',
-    minWidth: 0,
+    background: '#f8fafc',
+    border: '1px solid #e6eaf0',
+    borderRadius: '8px',
   },
   detailItemWide: {
     gridColumn: '1 / -1',
   },
   detailLabel: {
-    display: 'block',
-    marginBottom: '6px',
     fontSize: '11px',
-    fontWeight: 700,
-    color: '#64748b',
+    fontWeight: 600,
+    color: '#9aa1b2',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
+    marginBottom: '6px',
   },
   detailValueRow: {
     display: 'flex',
-    alignItems: 'flex-start',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
     gap: '10px',
   },
   detailValue: {
     fontSize: '13px',
-    lineHeight: 1.5,
-    color: '#0f172a',
     fontWeight: 600,
-    overflowWrap: 'anywhere',
+    color: '#172033',
+    wordBreak: 'break-word',
   },
   detailValueEmpty: {
     fontSize: '13px',
-    lineHeight: 1.5,
-    color: '#94a3b8',
+    color: '#9aa1b2',
     fontStyle: 'italic',
   },
   copyButton: {
-    flexShrink: 0,
-    border: 'none',
-    background: '#e0e7ff',
-    color: '#4338ca',
     padding: '4px 8px',
-    borderRadius: '5px',
+    background: '#e7f5f3',
+    color: '#0f766e',
+    border: 'none',
+    borderRadius: '4px',
     fontSize: '11px',
-    fontWeight: 700,
+    fontWeight: 600,
     cursor: 'pointer',
-  },
-
-  // Mobile cards
-  mobileCard: {
-    background: '#fff',
-    padding: '16px',
-    borderRadius: '8px',
-    border: '1px solid #e2e8f0',
-  },
-  mobileTop: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: '8px',
-  },
-  mobileIndex: {
-    fontSize: '12px',
-    fontWeight: 600,
-    color: '#94a3b8',
-  },
-  mobileName: {
-    margin: '0 0 4px',
-    fontSize: '15px',
-    fontWeight: 600,
-    color: '#0f172a',
-  },
-  mobilePhone: {
-    margin: '0 0 8px',
-    fontSize: '14px',
-    color: '#475569',
-  },
-  mobileMeta: {
-    margin: '0 0 4px',
-    fontSize: '13px',
-    color: '#64748b',
-  },
-  mobileTime: {
-    margin: 0,
-    fontSize: '12px',
-    color: '#94a3b8',
-  },
-
-  // Footer
-  footer: {
-    padding: '20px',
-    textAlign: 'center',
-    fontSize: '14px',
-    color: '#64748b',
+    flexShrink: 0,
   },
 
   // Chat
@@ -2024,15 +2760,15 @@ const s: Record<string, React.CSSProperties> = {
     position: 'fixed',
     bottom: '24px',
     right: '24px',
-    width: '56px',
-    height: '56px',
+    width: '52px',
+    height: '52px',
     borderRadius: '50%',
-    background: '#10b981',
+    background: '#0f766e',
     color: '#fff',
     border: 'none',
-    fontSize: '24px',
+    fontSize: '20px',
     cursor: 'pointer',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+    boxShadow: '0 4px 18px rgba(114, 41, 230, 0.3)',
     zIndex: 1000,
     display: 'flex',
     alignItems: 'center',
@@ -2040,28 +2776,46 @@ const s: Record<string, React.CSSProperties> = {
   },
   chatPanel: {
     position: 'fixed',
-    bottom: '92px',
-    right: '24px',
+    bottom: '24px',
+    right: '90px',
     width: '380px',
-    maxWidth: 'calc(100vw - 48px)',
-    height: '500px',
-    maxHeight: 'calc(100vh - 120px)',
-    background: '#fff',
-    borderRadius: '12px',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+    maxWidth: 'calc(100vw - 120px)',
+    height: '520px',
+    maxHeight: 'calc(100vh - 100px)',
+    background: '#ffffff',
+    borderRadius: '14px',
+    boxShadow: '0 8px 32px rgba(31, 38, 67, 0.15)',
+    border: '1px solid #e6eaf0',
     display: 'flex',
     flexDirection: 'column',
     overflow: 'hidden',
-    zIndex: 1000,
-    border: '1px solid #e2e8f0',
+    zIndex: 1500,
   },
   chatHeader: {
-    padding: '16px',
-    background: '#10b981',
+    padding: '16px 20px',
+    background: '#172033',
     color: '#fff',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  chatTitle: {
     fontSize: '15px',
-    fontWeight: '600',
-    flexShrink: 0,
+    fontWeight: 600,
+  },
+  chatHeaderClose: {
+    width: '28px',
+    height: '28px',
+    background: 'rgba(255,255,255,0.1)',
+    border: 'none',
+    borderRadius: '6px',
+    color: '#fff',
+    fontSize: '18px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    lineHeight: 1,
   },
   chatBody: {
     flex: 1,
@@ -2081,7 +2835,7 @@ const s: Record<string, React.CSSProperties> = {
     justifyContent: 'flex-start',
   },
   bubbleUser: {
-    background: '#10b981',
+    background: '#0f766e',
     color: '#fff',
     padding: '10px 14px',
     borderRadius: '12px 12px 2px 12px',
@@ -2090,58 +2844,56 @@ const s: Record<string, React.CSSProperties> = {
     lineHeight: 1.5,
   },
   bubbleBot: {
-    background: '#fff',
-    color: '#0f172a',
+    background: '#ffffff',
+    color: '#172033',
     padding: '10px 14px',
     borderRadius: '12px 12px 12px 2px',
     fontSize: '14px',
     maxWidth: '85%',
     lineHeight: 1.5,
-    border: '1px solid #e2e8f0',
+    border: '1px solid #e6eaf0',
   },
   chatQuick: {
     display: 'flex',
     flexDirection: 'column',
     gap: '6px',
     padding: '12px 16px',
-    background: '#fff',
-    borderTop: '1px solid #e2e8f0',
-    flexShrink: 0,
+    background: '#ffffff',
+    borderTop: '1px solid #e6eaf0',
   },
   quickBtn: {
-    background: '#f8fafc',
-    color: '#475569',
-    border: '1px solid #e2e8f0',
     padding: '8px 12px',
-    borderRadius: '6px',
+    background: '#f8fafc',
+    border: '1px solid #e6eaf0',
+    borderRadius: '8px',
     fontSize: '13px',
     fontWeight: 500,
+    color: '#687086',
     cursor: 'pointer',
     textAlign: 'left',
   },
-  chatInput: {
+  chatInputArea: {
     display: 'flex',
     padding: '12px 16px',
     gap: '8px',
-    background: '#fff',
-    borderTop: '1px solid #e2e8f0',
-    flexShrink: 0,
+    background: '#ffffff',
+    borderTop: '1px solid #e6eaf0',
   },
-  input: {
+  chatInput: {
     flex: 1,
     padding: '8px 12px',
-    borderRadius: '6px',
-    border: '1px solid #cbd5e1',
+    border: '1px solid #e6eaf0',
+    borderRadius: '8px',
     fontSize: '14px',
-    color: '#0f172a',
+    color: '#172033',
     outline: 'none',
   },
   btnSend: {
-    background: '#10b981',
+    padding: '8px 16px',
+    background: '#0f766e',
     color: '#fff',
     border: 'none',
-    padding: '8px 16px',
-    borderRadius: '6px',
+    borderRadius: '8px',
     fontSize: '14px',
     fontWeight: 600,
     cursor: 'pointer',
